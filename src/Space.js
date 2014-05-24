@@ -11,7 +11,7 @@ Space.prototype.count = function () {
 };
 
 Space.prototype.resetTime = function () {
-    this.start = new Date().getTime;
+    this.start = new Date().getTime();
 };
 
 Space.prototype.snap = function (id, throwIfMissing) {
@@ -27,7 +27,7 @@ Space.prototype.snap = function (id, throwIfMissing) {
 };
 
 Space.prototype.nextTime = function () {
-    this.time = new Date().getTime() - this.start();
+    this.time = new Date().getTime() - this.start;
 };
 
 Space.prototype.update = function (next) {

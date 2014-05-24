@@ -1,15 +1,3 @@
-(function(root, factory) {
-    if(typeof exports === 'object') {
-        module.exports = factory(require('lodash'), require('signals'));
-    }
-    else if(typeof define === 'function' && define.amd) {
-        define('SNAPS', ['_', 'signals'], factory);
-    }
-    else {
-        root['SNAPS'] = factory(root._, root.signals);
-    }
-}(this, function(_, signals) {
-
 var SNAPS = {
 
     signals: signals
@@ -832,7 +820,3 @@ Space.prototype.update = function (next) {
 SNAPS.space = function () {
     return new Space();
 };
-
-return SNAPS;
-
-}));

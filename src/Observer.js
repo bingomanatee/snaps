@@ -24,7 +24,7 @@ SNAPS.Observer = function (props, handler, meta) {
     this.target = target;
     this.watching = SNAPS.assert.arrayForce(props.watching);
 
-    if (props.startTime) {
+    if (props.hasOwnProperty('startTime')) {
         this.startTime = props.startTime;
         this.endTime = -1;
         if (props.duration) {
@@ -110,7 +110,6 @@ SNAPS.Observer.prototype.applyTime = function (target) {
             this.meta.initCalled = true;
         }
 
-        debugger;
         var progress = (this.space.time - this.startTime) / (this.endTime - this.startTime);
         this.handler.call(target, progress);
     }
