@@ -1,0 +1,33 @@
+{
+  "name": "snaps",
+  "version": "0.0.1",
+  "description": "a neural model for Javascript",
+  "main": "snaps.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bingomanatee/snaps"
+  },
+  "keywords": [
+    "network",
+    "neural"
+  ],
+  "author": "David Edelhart",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bingomanatee/snaps/issues"
+  },
+  "homepage": "https://github.com/bingomanatee/snaps",
+  "dependencies": {
+    "grunt-contrib-concat": "~0.4.0",
+    "grunt-umd": "~1.7.4",
+    "grunt": "~0.4.5",
+    "lodash": "~2.4.1",
+    "signals": "~1.0.0"
+  },
+  "devDependencies": {
+    "mocha": "~1.19.0"
+  }
+}

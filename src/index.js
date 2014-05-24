@@ -1,0 +1,5 @@
+var SNAPS = {
+
+    signals: signals
+
+};
