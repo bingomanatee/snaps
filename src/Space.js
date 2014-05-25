@@ -26,6 +26,18 @@ Space.prototype.snap = function (id, throwIfMissing) {
     return snap;
 };
 
+Space.prototype.bd = function(props, ele, parent){
+    props = SNAPS.assert.or('object', props, {});
+    if (ele){
+        props.element = ele;
+    }
+    if (parent){
+        props.addElement = parent;
+    }
+
+    return new SNAPS.BrowserDom(this, props);
+};
+
 Space.prototype.nextTime = function () {
     this.time = new Date().getTime() - this.start;
 };
@@ -38,23 +50,19 @@ Space.prototype.update = function (next) {
     var i;
     var snap;
 
-    var o1 = -1;
-    var o2 = -1;
 
-    for (i = 0; i < this.snaps.length; ++i) {
+    var l = this.snaps.length;
+
+    for (i = 0; i < l; ++i) {
         snap = this.snaps[i];
         if (snap.active) {
-            if (snap.output) {
-                if (o1 == -1) {
-                    o1 = i;
-                }
-                o2 = i;
-            }
             snap.update();
         }
     }
 
-    for (i = o1; i < o2; ++i) {
+    l = this.snaps.length;
+
+    for (i = 0; i < l; ++i) {
         snap = this.snaps[i];
         if (snap.active && snap.output) {
             snap.output.dispatch(snap, this, this.time);

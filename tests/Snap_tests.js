@@ -97,7 +97,6 @@ describe('SNAPS', function () {
                             snap = space.snap();
                             snapChild = space.snap();
                             snap.addChild(snapChild);
-                            console.log('child added');
                         });
 
                         it('should cascade a property to a child', function () {

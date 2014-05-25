@@ -19,7 +19,7 @@ SNAPS.Observer = function (props, handler, meta) {
         return SNAPS.assert.prop(target, 'space')
     });
     this.space = SNAPS.assert.$TYPE(space, 'SPACE', function () {
-        debugger;
+
     });
     this.target = target;
     this.watching = SNAPS.assert.arrayForce(props.watching);

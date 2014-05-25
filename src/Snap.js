@@ -46,9 +46,15 @@ function Snap(space, id) {
     this.rels = [];
 
     this.active = true;
+
+    this.blendCount = 0;
 }
 
 Snap.prototype.$TYPE = 'SNAP';
+
+Snap.prototype.state = function () {
+    return _.clone(this._props);
+};
 
 Snap.prototype.getRels = function (relType) {
     return _.reduce(this.rels, function (list, rel) {
@@ -68,6 +74,7 @@ Snap.prototype.rel = function (relType, toId, meta) {
         order: this.getRels(relType).length
     }, meta);
     this.rels.push(rel);
+    return rel;
 };
 
 /**
@@ -110,13 +117,36 @@ Snap.prototype.getRels = function () {
     return out;
 };
 
+Snap.prototype.merge = function (prop, value, combiner) {
+    if (!this.has(prop)) {
+        return this.set(prop, value);
+    }
+
+    var oldValue = this.get(prop);
+    if (combiner) {
+        value = combiner(value, oldValue);
+    } else if (_.isArray(prop)) {
+        if (_.isArray(oldValue)) {
+            value = (oldValue.concat(value));
+        }
+    } else if (_.isObject(value)) {
+        if (_.isObject(oldValue)) {
+            _.defaults(value, oldValue);
+        }
+    } // otherwise, set
+
+    this.set(prop, value);
+};
+
 Snap.prototype.update = function (broadcast) {
     if (!this.active) {
         // shouldn't be possible but just in case
         return;
     }
 
-    var i;
+    if (this.blendCount > 0) {
+        this.updateBlends();
+    }
 
     if (this.hasUpdates()) {
         for (i = 0; i < this.observers.length; ++i) {
@@ -132,7 +162,7 @@ Snap.prototype.update = function (broadcast) {
 
     _.extend(this._props, this._pendingChanges);
 
-    if (this.output){
+    if (this.output) {
         this.lastChanges = this.pending();
     } else {
         this.lastChanges = false;
@@ -144,31 +174,104 @@ Snap.prototype.update = function (broadcast) {
     }
 };
 
+Snap.prototype.updateBlends = function () {
+    var blends = this.getRels('blends');
+    var blendValues = {};
+    var time = this.space.time;
+
+    var doneBlends = [];
+
+    for (var i = 0; i < blends.length; ++i) {
+        var blend = blends[i];
+        var prop = blend.get('prop');
+        var endTime = blend.get('endTime');
+        var value;
+        var endValue = blend.get('endValue');
+        var progress;
+
+        if (endTime <= time) {
+            value = endValue;
+            progress = 1;
+            doneBlends.push(blend);
+        } else {
+            var startTime = blend.get('startTime');
+            var startValue = blend.get('startValue');
+            var dur = endTime - startTime;
+            progress = time - startTime;
+            progress /= dur;
+
+            value = (progress * endValue) + ((1 - progress) * startValue);
+        }
+
+        if (!blendValues[prop]) {
+            blendValues[prop] = [];
+        }
+        blendValues[prop].push({
+            value: value,
+            progress: progress
+        });
+    }
+
+    for (var b in blendValues) {
+        var blendSet = blendValues[b];
+        if (blendSet.length == 1) {
+            this.set(b, blend[0].value);
+        } else {
+            var weight = 0;
+            var netValue = 0;
+            for (var bw = 0; bw < blendSet.length; ++bw) {
+                var partProgress = blendSet[bw].progress;
+                netValue += blendSet[bw].value * partProgress;
+                weight += partProgress;
+            }
+            if (weight > 0) {
+                this.set(b, netValue / weight);
+            }
+        }
+
+        for (var d = 0; d < doneBlends.length; ++d) {
+            this.removeRel(doneBlends[d]);
+        }
+    }
+};
+
+Snap.prototype.removeRel = function (rel) {
+
+}
+
 /**
  * applies an update for a single property; only broacasts if that property has an update.
  *
- * @param property
+ * @param prop
  * @param broadcast
  */
 
-Snap.prototype.updateProp = function (property, broadcast) {
-    if (this._pendingChanges.hasOwnProperty(property)) {
-        this._props[property] = this._pendingChanges[property];
-        delete(this._pendingChanges[property]);
+Snap.prototype.updateProp = function (prop, broadcast) {
+    if (this._pendingChanges.hasOwnProperty(prop)) {
+        this._props[prop] = this._pendingChanges[prop];
+        delete(this._pendingChanges[prop]);
         if (broadcast) {
             this.broadcast('child', 'update');
         }
     }
 };
 
-Snap.prototype.set = function (property, value) {
-    this._myProps[property] = value;
-    this._pendingChanges[property] = value;
-    this.broadcast('child', 'inherit', property, value);
+Snap.prototype.has = function (prop) {
+    return this._props.hasOwnProperty(prop);
 };
 
-Snap.prototype.setAndUpdate = function (property, value) {
-    this.set(property, value);
+Snap.prototype.set = function (prop, value) {
+    this._myProps[prop] = value;
+    this._pendingChanges[prop] = value;
+    this.broadcast('child', 'inherit', prop, value);
+};
+
+Snap.prototype.del = function (prop) {
+    this.set(prop, SNAP.DELETE);
+};
+
+Snap.prototype.setAndUpdate = function (prop, value) {
+    this.set(prop, value);
     this.update(true);
 };
 
@@ -204,8 +307,8 @@ Snap.prototype.observe = function (props, handler, meta) {
     return o;
 };
 
-Snap.prototype.removeObserver = function(obs){
-    this.observers = _.reject(this.observers, function(o){
+Snap.prototype.removeObserver = function (obs) {
+    this.observers = _.reject(this.observers, function (o) {
         return o.id == obs.id;
     });
     obs.deactivate();
@@ -278,9 +381,16 @@ Snap.prototype.remove = function () {
     this.rels = null;
 };
 
-Snap.prototype.addOutput = function(handler){
-    if (!this.output){
-        this.output = SNAP.signals.Signal();
+Snap.prototype.removeRel = function (rel) {
+    this.rels = _.reject(this.rels, function (r) {
+        return r.id == rel.id;
+    });
+    rel.active = false;
+};
+
+Snap.prototype.addOutput = function (handler) {
+    if (!this.output) {
+        this.output = new signals.Signal();
     }
 
     this.output.add(handler);
@@ -306,11 +416,11 @@ Snap.prototype.pending = function (keys) {
     return found ? out : false;
 };
 
-Snap.prototype.broadcast = function (target, message, property, value) {
+Snap.prototype.broadcast = function (target, message, prop, value) {
     for (var i = 0; i < this.rels.length; ++i) {
         var rel = this.rels[i];
         if (rel.relType == target) {
-            rel.broadcast(this.id, message, property, value);
+            rel.broadcast(this.id, message, prop, value);
         }
     }
 };
@@ -331,21 +441,21 @@ Snap.prototype.hasUpdates = function () {
     return false;
 };
 
-Snap.prototype.hear = function (message, property, value) {
+Snap.prototype.hear = function (message, prop, value) {
     switch (message) {
         case 'inherit':
-            if (this._myProps.hasOwnProperty(property)) {
+            if (this._myProps.hasOwnProperty(prop)) {
                 return;
             }
-            this._pendingChanges[property] = value;
+            this._pendingChanges[prop] = value;
 
-            this.broadcast('child', 'inherit', property, value);
+            this.broadcast('child', 'inherit', prop, value);
             break;
 
         case 'update':
-            if (property) {
-                if (this.hasUpdates(property)) {
-                    this.updateProp(property, true);
+            if (prop) {
+                if (this.hasUpdates(prop)) {
+                    this.updateProp(prop, true);
                 }
             } else {
                 if (this.hasUpdates()) {
@@ -365,6 +475,19 @@ Snap.prototype.family = function () {
 
     return out;
 };
+
+Snap.prototype.blend = function (prop, endValue, time, blend) {
+    var valueSnap = this.space.snap();
+    valueSnap.set('prop', prop);
+    var startValue = this.has(prop) ? parseFloat(this.get(prop)) || 0 : 0;
+    valueSnap.set('startValue', startValue);
+    valueSnap.set('endValue', endValue);
+    valueSnap.set('startTime', this.space.time);
+    valueSnap.set('endTime', this.space.time + Math.max(parseInt(time), 1));
+    valueSnap.set('blend', blend);
+    this.rel('blend', valueSnap, {prop: prop});
+    this.blendCount++;
+}
 
 /** ordinarily SNAPS is a class that is only created through a space factory.
  * This backend accessor is created to access Snap only for testing purposes

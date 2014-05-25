@@ -1,5 +1,4 @@
 var SNAPS = {
-
-    signals: signals
-
+    signals: signals,
+    DELETE: {SNAP_DELETE: true}
 };

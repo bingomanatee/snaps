@@ -65,3 +65,18 @@ In this way they can affect DOM elements, canvas objects (Easel, etc.,) THREE sc
 
 Snaps is designed to be able to run in Web Workers and transmit its changeset through messages. It also allows for
 remote management through pubsub models, web sockets, and other network/service enabled environments.
+
+## Compatibility
+
+### Browser
+
+As the interaction with the DOM is fundamentally simple -- setting style properties, ids, name, etc., Snaps should
+be cross browser compatibile to IE8 and all modern browsers. That being said, formal cross browser testing is pending.
+Also, transforms are an IE9 festure so you will have to be consious of this when you use them.
+
+### Other frameworks
+
+Snaps only understands the DOM elements it creates / is passed; it should be interoperable with any other JS
+framework. It works with require.js, and in fact can be used to manage properties in any JS system (THREE,
+CreateJS, etc.). Like D3, its management system is independent of its rendering engine so it can be used to manage
+any sort of property driven context.

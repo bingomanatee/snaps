@@ -5,18 +5,18 @@ define(function (require, exports, module) {
 
     var space = SNAPS.space();
 
-    var snap = space.snap();
-
-    snap.observe({startTime: 0, endTime: 10000}, function (p) {
-        this.set('n', p);
-        debugger;
-    });
-
     function animate() {
         space.update(true);
-        console.log('n: ', snap.get('n'));
         requestAnimationFrame(animate);
     }
+
+    var box = new SNAPS.BrowserDom(space, {
+        width: '200px',
+        height: '150px',
+        'background-color': 'red',
+        addElement: true,
+        content: 'Bob the Box'
+    });
 
     animate();
 });

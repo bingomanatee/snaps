@@ -143,7 +143,16 @@ describe('SNAPS', function () {
                 }
             })
 
-        })
+        });
+
+        describe ('#or', function(){
+
+           it('should return the result if type matches', function(){
+               SNAPS.assert.or('array', [1, 2, 3], [4, 5, 6]).should.eql([1,2,3]);
+               SNAPS.assert.or('object', {a: 1, b: 2}, {a: 3, b: 4}).should.eql({a: 1, b: 2});
+           })
+
+        });
     });
 
     describe('misc', function(){

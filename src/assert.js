@@ -84,6 +84,17 @@ SNAPS.assert = {
         return item;
     },
 
+    or: function(){
+        var args = _.toArray(arguments);
+        var name = args.shift();
+        var alt = args.pop();
+        try {
+           return SNAPS.assert[name].apply(SNAPS.assert, args);
+        } catch(err){
+            return alt;
+        }
+    },
+
     string: function(item, message){
         if(typeof(arguments[arguments.length -1]) == 'function'){
             var args = _.toArray(arguments);
