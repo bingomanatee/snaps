@@ -12,6 +12,12 @@ Space.prototype.count = function () {
 
 Space.prototype.resetTime = function () {
     this.start = new Date().getTime();
+    this.time = 0;
+};
+
+Space.prototype.setTime = function(n){
+    this.time = n;
+    return this;
 };
 
 Space.prototype.snap = function (id, throwIfMissing) {
@@ -40,6 +46,7 @@ Space.prototype.bd = function(props, ele, parent){
 
 Space.prototype.nextTime = function () {
     this.time = new Date().getTime() - this.start;
+    return this.time;
 };
 
 Space.prototype.update = function (next) {

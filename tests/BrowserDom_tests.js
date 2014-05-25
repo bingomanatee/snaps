@@ -27,7 +27,6 @@ describe('SNAPS', function () {
             });
 
             it('should be in document', function () {
-                console.log('createElement:  document content: %s', document.outerHTML);
                 document.outerHTML.should.eql('<html><body><div></div></body></html>');
             });
 
@@ -151,6 +150,40 @@ describe('SNAPS', function () {
                     div.outerHTML.should.eql("<div name=\"foo\" style=\"color: rgb(255, 0, 0);\"></div>")
                 });
             });
+
         });
+
+        describe('#set', function () {
+            var space, bd;
+            var document, window, div;
+
+            before(function (done) {
+
+                dom.env(
+                    '<html><body></body></html>',
+                    [],
+                    function (errors, w) {
+                        window = w;
+                        document = window.document;
+                        div = document.createElement('div');
+                        document.body.appendChild(div);
+
+                        space = SNAPS.space();
+                        bd = space.bd({name: 'foo', color: 'rgb(255,0,0)'}, div, document.body);
+                        space.update();
+                        done();
+                    }
+                );
+            });
+
+            it('should allow you to set properties', function () {
+                div.outerHTML.should.eql('<div name="foo" style="color: rgb(255, 0, 0);"></div>');
+                bd.set('name', 'bar');
+                div.outerHTML.should.eql('<div name="foo" style="color: rgb(255, 0, 0);"></div>');
+                space.update();
+                div.outerHTML.should.eql('<div name="bar" style="color: rgb(255, 0, 0);"></div>');
+            });
+
+        })
     });
 });

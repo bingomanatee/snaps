@@ -23,11 +23,15 @@ var SNAPS = {
 
 /**
  *
- * The assert methods are intended to inforce type integrity; they throw an error if the object does not pass
- * the type filter; otherwise they echo the input. As such they can be used inline during assignment.
+ * This assert library is attened to allow in-context checking of type
+ * upon assignment; it will return the input if the type checking passes.
  *
- * The alternative use of the filters is by passing a function; if the test fails, the result of the function
- * (which is passed the original arguments) is returned.
+ * If the type checking does NOT pass AND the last argument is a function, that function is called (and its result passed.)
+ * If the type checking does NOT pass and the last argument is NOT a function an error is thrown.
+ * if message is set, it's set to the error's message value; otherwise an error defined by the check-types API is thrown.
+ *
+ * Alternatively, the SNAPS.assert.or method always returns a value -- either the input (if it is valid) or the third argument (if it is not). 
+ *
  */
 
 SNAPS.assert = {
@@ -101,14 +105,33 @@ SNAPS.assert = {
         }
     },
 
-    or: function () {
-        var args = _.toArray(arguments);
-        var name = args.shift();
-        var alt = args.pop();
-        try {
-            return SNAPS.assert[name].apply(SNAPS.assert, args);
-        } catch (err) {
-            return alt;
+    or: function (typeName, item, alt) {
+
+        switch(typeName){
+            case 'number':
+                return check.number(item) ? item : alt;
+                break;
+
+            case 'array':
+                return check.array(item) ? item : alt;
+
+                break;
+
+            case 'function':
+
+                return check.fn(item) ? item : alt;
+                break;
+
+            case 'string':
+                return check.string(item) ? item : alt;
+                break;
+
+            case 'object':
+                return check.object(item) ? item : alt;
+                break;
+
+            default:
+                throw new Error('cannot or type ' + typeName);
         }
     },
 
@@ -484,9 +507,9 @@ SNAPS.Observer.prototype.applyTime = function (target) {
 
 SNAPS.BrowserDom = function (space, props) {
     this.space = space;
-    this.snap = space.snap();
+    this.attrSnap = space.snap();
 
-    var rel = this.snap.rel('style', space.snap());
+    var rel = this.attrSnap.rel('style', space.snap());
     this.styleSnap = rel.toSnap();
 
     this.tagName = props.tagName || 'div';
@@ -499,20 +522,19 @@ SNAPS.BrowserDom = function (space, props) {
     this.initWatchers(props.watchedProps || ['classes', 'content', 'id', 'name']);
     delete props.watchedProps;
 
-    if (props.addElement === true) {
-        this.addElement();
-        delete props.addElement;
-    } else if (props.addElement) {
-        var parent = SNAPS.assert.$TYPE(props.addElement, 'BROWSERDOM', function () {
-            return props.addElement;
-        });
-        this.addElement(parent);
+    if (props.addElement) {
+        if (props.addElement === true) {
+            this.addElement();
+        } else {
+            var parent = props.addElement.$TYPE == SNAPS.BrowserDom.prototype.$TYPE ? props.addElement.element : props.addElement;
+            this.addElement(parent);
+        }
         delete props.addElement;
     }
 
     for (var p in props) {
         if (this.changeWatchers[p]) {
-            this.snap.set(p, props[p]);
+            this.attrSnap.set(p, props[p]);
         } else {
             this.styleSnap.set(p, props[p]);
         }
@@ -536,7 +558,7 @@ SNAPS.BrowserDom.prototype.stylesChanged = function (eleSnap) {
 
 SNAPS.BrowserDom.prototype.initOutput = function () {
 
-    this.snap.addOutput(this.changed.bind(this));
+    this.attrSnap.addOutput(this.changed.bind(this));
     this.styleSnap.addOutput(this.stylesChanged.bind(this));
 };
 
@@ -638,7 +660,7 @@ SNAPS.removeElement = function () {
 SNAPS.BrowserDom.prototype.changed = function (snap, space, time) {
 
     var changes = snap.lastChanges;
-    if (!changes){
+    if (!changes) {
         return;
     }
     for (var p in changes) {
@@ -654,11 +676,11 @@ SNAPS.BrowserDom.prototype.changed = function (snap, space, time) {
 };
 
 SNAPS.BrowserDom.prototype.set = function (prop, value) {
-    this.snap.set(prop, value);
+    this.attrSnap.set(prop, value);
 };
 
 SNAPS.BrowserDom.prototype.merge = function (prop, value, c) {
-    this.snap.merge(prop, value, c);
+    this.attrSnap.merge(prop, value, c);
 };
 
 SNAPS.BrowserDom.prototype.setStyle = function (prop, value) {
@@ -840,69 +862,6 @@ Snap.prototype.update = function (broadcast) {
     }
 };
 
-Snap.prototype.updateBlends = function () {
-    var blends = this.getRels('blends');
-    var blendValues = {};
-    var time = this.space.time;
-
-    var doneBlends = [];
-
-    for (var i = 0; i < blends.length; ++i) {
-        var blend = blends[i];
-        var prop = blend.get('prop');
-        var endTime = blend.get('endTime');
-        var value;
-        var endValue = blend.get('endValue');
-
-        var progress;
-
-        if (endTime <= time) {
-            value = endValue;
-            progress = 1;
-            doneBlends.push(blend);
-        } else {
-            var blendFn = SNAPS.prototype.assert.or('function', blend.get('blend'), _.identity);
-            var startTime = blend.get('startTime');
-            var startValue = SNAPS.prototype.assert.or('number', blend.get('startValue'), 0);
-            var dur = endTime - startTime;
-            progress = time - startTime;
-            progress /= dur;
-
-            value = (progress * endValue) + ((1 - progress) * startValue);
-        }
-
-        if (!blendValues[prop]) {
-            blendValues[prop] = [];
-        }
-        blendValues[prop].push({
-            value: value,
-            progress: progress
-        });
-    }
-
-    for (var b in blendValues) {
-        var blendSet = blendValues[b];
-        if (blendSet.length == 1) {
-            this.set(b, blend[0].value);
-        } else {
-            var weight = 0;
-            var netValue = 0;
-            for (var bw = 0; bw < blendSet.length; ++bw) {
-                var partProgress = blendSet[bw].progress;
-                netValue += blendSet[bw].value * partProgress;
-                weight += partProgress;
-            }
-            if (weight > 0) {
-                this.set(b, netValue / weight);
-            }
-        }
-
-        for (var d = 0; d < doneBlends.length; ++d) {
-            this.removeRel(doneBlends[d]);
-        }
-    }
-};
-
 Snap.prototype.removeRel = function (rel) {
 
 }
@@ -928,10 +887,11 @@ Snap.prototype.has = function (prop) {
     return this._props.hasOwnProperty(prop);
 };
 
-Snap.prototype.set = function (prop, value) {
+Snap.prototype.set = function (prop, value, immediate) {
     this._myProps[prop] = value;
     this._pendingChanges[prop] = value;
     this.broadcast('child', 'inherit', prop, value);
+    return this;
 };
 
 Snap.prototype.del = function (prop) {
@@ -943,7 +903,12 @@ Snap.prototype.setAndUpdate = function (prop, value) {
     this.update(true);
 };
 
-Snap.prototype.get = function (prop) {
+Snap.prototype.get = function (prop, pending) {
+    if (pending){
+        if (this._pendingChanges.hasOwnProperty(prop)){
+            return this._pendingChanges[prop];
+        }
+    }
     return this._props[prop];
 };
 
@@ -1103,12 +1068,14 @@ Snap.prototype.hasUpdates = function () {
         return false;
     }
 
+    //@TODO: replace with check.nonemptyObject
     for (var p in this._pendingChanges) {
         return true;
     }
     return false;
 };
 
+//@#TODO: replace with signals API
 Snap.prototype.hear = function (message, prop, value) {
     switch (message) {
         case 'inherit':
@@ -1145,14 +1112,15 @@ Snap.prototype.family = function () {
 };
 
 Snap.prototype.blend = function (prop, endValue, time, blend) {
+    debugger;
     var valueSnap = this.space.snap();
     valueSnap.set('prop', prop);
     var startValue = this.has(prop) ? parseFloat(this.get(prop)) || 0 : 0;
-    valueSnap.set('startValue', startValue);
-    valueSnap.set('endValue', endValue);
-    valueSnap.set('startTime', this.space.time);
-    valueSnap.set('endTime', this.space.time + Math.max(parseInt(time), 1));
-    valueSnap.set('blend', blend);
+    valueSnap.set('startValue', startValue)
+    .set('endValue', endValue)
+    .set('startTime', this.space.time)
+    .set('endTime', this.space.time + Math.max(parseInt(time), 1))
+    .set('blend', blend);
     this.rel('blend', valueSnap, {prop: prop});
     this.blendCount++;
 }
@@ -1168,6 +1136,73 @@ SNAPS.Snap = function (why) {
 };
 
 
+Snap.prototype.updateBlends = function () {
+    var blends = this.getRels('blend');
+    var blendValues = {};
+
+    var time = this.space.time;
+
+    var doneBlends = [];
+
+    for (var i = 0; i < blends.length; ++i) {
+        var blend = blends[i];
+        var toSnap = blend.toSnap();
+        var prop = toSnap.get('prop', 1);
+        var endTime = toSnap.get('endTime', 1);
+        var value;
+        var endValue = toSnap.get('endValue', 1);
+
+        var progress;
+
+        if (endTime <= time) {
+            value = endValue;
+            progress = 1;
+            doneBlends.push(blend);
+        } else {
+            var startTime = toSnap.get('startTime', 1);
+            var startValue = SNAPS.assert.or('number', toSnap.get('startValue', 1), 0);
+            var dur = endTime - startTime;
+            progress = time - startTime;
+            progress /= dur;
+
+            value = (progress * endValue) + ((1 - progress) * startValue);
+        }
+
+        if (!blendValues[prop]) {
+            blendValues[prop] = [];
+        }
+        blendValues[prop].push({
+            value: value,
+            progress: progress
+        });
+    }
+
+    for (var b in blendValues) {
+        var blendSet = blendValues[b];
+        if (blendSet.length == 1) {
+            this.set(b, blendSet[0].value);
+        } else {
+            var weight = 0;
+            var netValue = 0;
+            for (var bw = 0; bw < blendSet.length; ++bw) {
+                var partProgress = blendSet[bw].progress;
+                netValue += blendSet[bw].value * partProgress;
+                weight += partProgress;
+            }
+            if (weight > 0) {
+                this.set(b, netValue / weight);
+            }
+        }
+    }
+
+    for (var d = 0; d < doneBlends.length; ++d) {
+        this.removeRel(doneBlends[d]);
+        if (this.blendCount > 0) {
+            --this.blendCount;
+        }
+    }
+};
+
 var Space = function () {
     this.id = 1;
     this.snaps = [];
@@ -1182,6 +1217,12 @@ Space.prototype.count = function () {
 
 Space.prototype.resetTime = function () {
     this.start = new Date().getTime();
+    this.time = 0;
+};
+
+Space.prototype.setTime = function(n){
+    this.time = n;
+    return this;
 };
 
 Space.prototype.snap = function (id, throwIfMissing) {
@@ -1210,6 +1251,7 @@ Space.prototype.bd = function(props, ele, parent){
 
 Space.prototype.nextTime = function () {
     this.time = new Date().getTime() - this.start;
+    return this.time;
 };
 
 Space.prototype.update = function (next) {

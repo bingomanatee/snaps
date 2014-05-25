@@ -14,6 +14,7 @@ module.exports = function(grunt) {
                         'src/BrowserDom.js',
                         'src/rate.js',
                         'src/Snap.js',
+                        'src/Snap/*.js',
                         'src/Space.js']
                 }
             }

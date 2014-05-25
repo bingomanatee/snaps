@@ -439,63 +439,37 @@ describe('SNAPS', function () {
                 });
             });
 
-            describe ('blends', function(){
-
-                var space;
-                var snap;
-
-                before(function(){
-                    space = SNAPS.space();
-                    snap = space.snap();
-                    snap.setAndUpdate('y', 0);
-                    snap.blend()
-                });
-
-                it('should set values at times', function(){
-
-                /*    var calls = 0;
-                    snap.observe({startTime: 10, endTime: 20}, function(progress){
-                        this.set('y', progress * 100);
-                        ++calls;
-                    });
-
-                    space.time = 0;
-
-                    space.update();
-
-                    new String(typeof snap.get('y')).should.eql('undefined'); // observer not active yet;
-
-                    space.time = 10;
-
-                    space.update();
-
-                    snap.get('y').should.eql(0);
-
-                    space.time = 15;
-
-                    space.update();
-
-                    snap.get('y').should.eql(50);
-
-                    space.time = 20;
-
-                    space.update();
-
-                    snap.get('y').should.eql(100);
-
-                    space.time = 30;
-
-                    space.update();
-
-                    snap.get('y').should.eql(100);
-
-                    calls.should.eql(3);
-*/
-                });
-
-            });
         });
 
+        describe ('blends', function(){
+
+            var space;
+            var snap;
+
+            before(function(){
+                space = SNAPS.space();
+                snap = space.snap();
+                snap.setAndUpdate('y', 0);
+                snap.blend('y', 100, 50);
+            });
+
+            it('should set values at times', function(){
+
+                snap.get('y').should.eql(0);
+                snap.blendCount.should.eql(1);
+                space.setTime(25);
+                space.update();
+                snap.blendCount.should.eql(1);
+                snap.get('y').should.eql(50);
+                space.setTime(50, true).update();
+                snap.get('y').should.eql(100);
+                snap.blendCount.should.eql(0);
+                space.setTime(51, true).update();
+                snap.blendCount.should.eql(0);
+
+            });
+
+        });
     });
 
 });

@@ -1,10 +1,14 @@
 /**
  *
- * The assert methods are intended to inforce type integrity; they throw an error if the object does not pass
- * the type filter; otherwise they echo the input. As such they can be used inline during assignment.
+ * This assert library is attened to allow in-context checking of type
+ * upon assignment; it will return the input if the type checking passes.
  *
- * The alternative use of the filters is by passing a function; if the test fails, the result of the function
- * (which is passed the original arguments) is returned.
+ * If the type checking does NOT pass AND the last argument is a function, that function is called (and its result passed.)
+ * If the type checking does NOT pass and the last argument is NOT a function an error is thrown.
+ * if message is set, it's set to the error's message value; otherwise an error defined by the check-types API is thrown.
+ *
+ * Alternatively, the SNAPS.assert.or method always returns a value -- either the input (if it is valid) or the third argument (if it is not). 
+ *
  */
 
 SNAPS.assert = {
@@ -78,14 +82,33 @@ SNAPS.assert = {
         }
     },
 
-    or: function () {
-        var args = _.toArray(arguments);
-        var name = args.shift();
-        var alt = args.pop();
-        try {
-            return SNAPS.assert[name].apply(SNAPS.assert, args);
-        } catch (err) {
-            return alt;
+    or: function (typeName, item, alt) {
+
+        switch(typeName){
+            case 'number':
+                return check.number(item) ? item : alt;
+                break;
+
+            case 'array':
+                return check.array(item) ? item : alt;
+
+                break;
+
+            case 'function':
+
+                return check.fn(item) ? item : alt;
+                break;
+
+            case 'string':
+                return check.string(item) ? item : alt;
+                break;
+
+            case 'object':
+                return check.object(item) ? item : alt;
+                break;
+
+            default:
+                throw new Error('cannot or type ' + typeName);
         }
     },
 

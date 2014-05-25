@@ -27,7 +27,6 @@ describe('SNAPS', function () {
                         SNAPS.assert.string(1);
                         ''.should.eql(2); // should never get this far.
                     } catch (err) {
-                        console.log('error: %s', util.inspect(err));
                         err.message.should.eql('Invalid string');
                         result = err;
                     }

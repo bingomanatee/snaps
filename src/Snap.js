@@ -174,69 +174,6 @@ Snap.prototype.update = function (broadcast) {
     }
 };
 
-Snap.prototype.updateBlends = function () {
-    var blends = this.getRels('blends');
-    var blendValues = {};
-    var time = this.space.time;
-
-    var doneBlends = [];
-
-    for (var i = 0; i < blends.length; ++i) {
-        var blend = blends[i];
-        var prop = blend.get('prop');
-        var endTime = blend.get('endTime');
-        var value;
-        var endValue = blend.get('endValue');
-
-        var progress;
-
-        if (endTime <= time) {
-            value = endValue;
-            progress = 1;
-            doneBlends.push(blend);
-        } else {
-            var blendFn = SNAPS.prototype.assert.or('function', blend.get('blend'), _.identity);
-            var startTime = blend.get('startTime');
-            var startValue = SNAPS.prototype.assert.or('number', blend.get('startValue'), 0);
-            var dur = endTime - startTime;
-            progress = time - startTime;
-            progress /= dur;
-
-            value = (progress * endValue) + ((1 - progress) * startValue);
-        }
-
-        if (!blendValues[prop]) {
-            blendValues[prop] = [];
-        }
-        blendValues[prop].push({
-            value: value,
-            progress: progress
-        });
-    }
-
-    for (var b in blendValues) {
-        var blendSet = blendValues[b];
-        if (blendSet.length == 1) {
-            this.set(b, blend[0].value);
-        } else {
-            var weight = 0;
-            var netValue = 0;
-            for (var bw = 0; bw < blendSet.length; ++bw) {
-                var partProgress = blendSet[bw].progress;
-                netValue += blendSet[bw].value * partProgress;
-                weight += partProgress;
-            }
-            if (weight > 0) {
-                this.set(b, netValue / weight);
-            }
-        }
-
-        for (var d = 0; d < doneBlends.length; ++d) {
-            this.removeRel(doneBlends[d]);
-        }
-    }
-};
-
 Snap.prototype.removeRel = function (rel) {
 
 }
@@ -262,10 +199,11 @@ Snap.prototype.has = function (prop) {
     return this._props.hasOwnProperty(prop);
 };
 
-Snap.prototype.set = function (prop, value) {
+Snap.prototype.set = function (prop, value, immediate) {
     this._myProps[prop] = value;
     this._pendingChanges[prop] = value;
     this.broadcast('child', 'inherit', prop, value);
+    return this;
 };
 
 Snap.prototype.del = function (prop) {
@@ -277,7 +215,12 @@ Snap.prototype.setAndUpdate = function (prop, value) {
     this.update(true);
 };
 
-Snap.prototype.get = function (prop) {
+Snap.prototype.get = function (prop, pending) {
+    if (pending){
+        if (this._pendingChanges.hasOwnProperty(prop)){
+            return this._pendingChanges[prop];
+        }
+    }
     return this._props[prop];
 };
 
@@ -437,12 +380,14 @@ Snap.prototype.hasUpdates = function () {
         return false;
     }
 
+    //@TODO: replace with check.nonemptyObject
     for (var p in this._pendingChanges) {
         return true;
     }
     return false;
 };
 
+//@#TODO: replace with signals API
 Snap.prototype.hear = function (message, prop, value) {
     switch (message) {
         case 'inherit':
@@ -479,14 +424,15 @@ Snap.prototype.family = function () {
 };
 
 Snap.prototype.blend = function (prop, endValue, time, blend) {
+    debugger;
     var valueSnap = this.space.snap();
     valueSnap.set('prop', prop);
     var startValue = this.has(prop) ? parseFloat(this.get(prop)) || 0 : 0;
-    valueSnap.set('startValue', startValue);
-    valueSnap.set('endValue', endValue);
-    valueSnap.set('startTime', this.space.time);
-    valueSnap.set('endTime', this.space.time + Math.max(parseInt(time), 1));
-    valueSnap.set('blend', blend);
+    valueSnap.set('startValue', startValue)
+    .set('endValue', endValue)
+    .set('startTime', this.space.time)
+    .set('endTime', this.space.time + Math.max(parseInt(time), 1))
+    .set('blend', blend);
     this.rel('blend', valueSnap, {prop: prop});
     this.blendCount++;
 }
