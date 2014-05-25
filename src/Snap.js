@@ -187,6 +187,7 @@ Snap.prototype.updateBlends = function () {
         var endTime = blend.get('endTime');
         var value;
         var endValue = blend.get('endValue');
+
         var progress;
 
         if (endTime <= time) {
@@ -194,8 +195,9 @@ Snap.prototype.updateBlends = function () {
             progress = 1;
             doneBlends.push(blend);
         } else {
+            var blendFn = SNAPS.prototype.assert.or('function', blend.get('blend'), _.identity);
             var startTime = blend.get('startTime');
-            var startValue = blend.get('startValue');
+            var startValue = SNAPS.prototype.assert.or('number', blend.get('startValue'), 0);
             var dur = endTime - startTime;
             progress = time - startTime;
             progress /= dur;

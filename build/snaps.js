@@ -2,6 +2,13 @@ var SNAPS = {
     signals: signals,
     DELETE: {SNAP_DELETE: true}
 };
+
+/**
+ * taken from node module check-types
+ */
+
+!function(n){"use strict";function t(n,r){var e;L.object(n),L.object(r);for(e in r)if(r.hasOwnProperty(e)){if(n.hasOwnProperty(e)===!1||typeof n[e]!=typeof r[e])return!1;if(u(n[e])&&t(n[e],r[e])===!1)return!1}return!0}function r(n,t){return"undefined"==typeof n||null===n?!1:f(t)&&n instanceof t?!0:!1}function e(n){var t;if(u(n)){for(t in n)if(n.hasOwnProperty(t))return!1;return!0}return!1}function u(n){return"object"==typeof n&&null!==n&&o(n)===!1&&a(n)===!1}function i(n,t){return n&&n.length===t}function o(n){return Array.isArray?Array.isArray(n):"[object Array]"===Object.prototype.toString.call(n)}function a(n){return"[object Date]"===Object.prototype.toString.call(n)}function f(n){return"function"==typeof n}function c(n){return m(n)&&/^https?:\/\/.+/.test(n)}function l(n){return m(n)&&/^git\+(ssh|https?):\/\/.+/.test(n)}function b(n){return m(n)&&/\S+@\S+/.test(n)}function m(n){return p(n)&&""!==n}function p(n){return"string"==typeof n}function s(n){return h(n)&&(n%2===1||n%2===-1)}function y(n){return h(n)&&n%2===0}function v(n){return h(n)&&n%1===0}function d(n){return h(n)&&n%1!==0}function g(n){return h(n)&&n>0}function I(n){return h(n)&&0>n}function h(n){return"number"==typeof n&&isNaN(n)===!1&&n!==Number.POSITIVE_INFINITY&&n!==Number.NEGATIVE_INFINITY}function N(n,t){var r,e,i={};L.object(n),L.object(t);for(r in t)t.hasOwnProperty(r)&&(e=t[r],f(e)?i[r]=e(n[r]):u(e)&&(i[r]=N(n[r],e)));return i}function j(n){var t,r;L.object(n);for(t in n)if(n.hasOwnProperty(t)){if(r=n[t],u(r)&&j(r)===!1)return!1;if(r===!1)return!1}return!0}function O(n){var t,r;L.object(n);for(t in n)if(n.hasOwnProperty(t)){if(r=n[t],u(r)&&O(r))return!0;if(r===!0)return!0}return!1}function w(n,t){var r;for(r in t)t.hasOwnProperty(r)&&(n[r]=t[r]);return n}function P(n,t){return function(){var r;if(n.apply(null,arguments)===!1)throw r=arguments[arguments.length-1],new Error(m(r)?r:t)}}function A(n){return function(){return null===arguments[0]||void 0===arguments[0]?!0:n.apply(null,arguments)}}function S(n){return function(){return!n.apply(null,arguments)}}function U(n){return k(n,F)}function k(n,t){var r,e={};for(r in t)t.hasOwnProperty(r)&&(e[r]=n(t[r],T[r]));return e}function E(t){n.check=t}var T,F,R,L,V,Y,_={credit:"TAKEN FROM npm module check-types",homepage:"https://github.com/philbooth/check-types.js"};F={like:t,instance:r,emptyObject:e,object:u,length:i,array:o,date:a,fn:f,webUrl:c,gitUrl:l,email:b,unemptyString:m,string:p,evenNumber:y,oddNumber:s,positiveNumber:g,negativeNumber:I,intNumber:v,floatNumber:d,number:h},T={like:"Invalid type",instance:"Invalid type",emptyObject:"Invalid object",object:"Invalid object",length:"Invalid length",array:"Invalid array",date:"Invalid date",fn:"Invalid function",webUrl:"Invalid URL",gitUrl:"Invalid git URL",email:"Invalid email",unemptyString:"Invalid string",string:"Invalid string",evenNumber:"Invalid number",oddNumber:"Invalid number",positiveNumber:"Invalid number",negativeNumber:"Invalid number",intNumber:"Invalid number",floatNumber:"Invalid number",number:"Invalid number"},R={map:N,every:j,any:O},R=w(R,F),R.credit=_,L=U(P),V=U(A),Y=U(S),L.maybe=k(P,V),L.not=k(P,Y),E(w(R,{verify:L,maybe:V,not:Y}))}(this);
+
 /**
  *
  * The assert methods are intended to inforce type integrity; they throw an error if the object does not pass
@@ -13,8 +20,8 @@ var SNAPS = {
 
 SNAPS.assert = {
 
-    $TYPE: function(obj, $type, message){
-        if(typeof(arguments[arguments.length -1]) == 'function'){
+    $TYPE: function (obj, $type, message) {
+        if (typeof(arguments[arguments.length - 1]) == 'function') {
             var args = _.toArray(arguments);
             return SNAPS.assert._assertCatch('$TYPE', args);
         }
@@ -27,15 +34,15 @@ SNAPS.assert = {
         }
     },
 
-    prop: function(obj, prop, message){
-        if(typeof(arguments[arguments.length -1]) == 'function'){
+    prop: function (obj, prop, message) {
+        if (typeof(arguments[arguments.length - 1]) == 'function') {
             var args = _.toArray(arguments);
             return SNAPS.assert._assertCatch('prop', args);
         }
-        obj = SNAPS.assert.type(obj, 'object');
-        prop = SNAPS.assert.type(prop, 'string', 'SNAPS.assert.prop.argument 2 must be a string');
-        if (obj && prop){
-            if (obj.hasOwnProperty(prop) || (typeof(obj[prop]) != 'undefined')){
+        obj = SNAPS.assert.obj(obj);
+        prop = SNAPS.assert.string(prop, 'SNAPS.assert.prop.argument 2 must be a string');
+        if (obj && prop) {
+            if (obj.hasOwnProperty(prop) || (typeof(obj[prop]) != 'undefined')) {
                 return obj[prop];
             } else {
                 throw (message || 'object does not have a property ' + prop);
@@ -43,137 +50,149 @@ SNAPS.assert = {
         }
     },
 
-    _assertCatch: function(name, args){
+    _assertCatch: function (name, args) {
         var catcher = args.pop();
         try {
             return SNAPS.assert[name].apply(SNAPS.assert, args);
-        } catch(err){
+        } catch (err) {
             return catcher(args, err, 'type');
         }
     },
 
-    number: function(item, message){
-        if(typeof(arguments[arguments.length -1]) == 'function'){
-            var args = _.toArray(arguments);
-            return SNAPS.assert._assertCatch('number', args);
+    number: function (item, message) {
+        var response = (arguments.length > 1 && (typeof(arguments[arguments.length - 1]) == 'function')) ? arguments[arguments.length - 1] : false;
+        if (response) {
+            return check.number(item) ? item : response();
+        } else {
+            check.verify.number(item, message);
+            return item;
         }
-        if (!_.isNumber(item)) {
-            throw (message || 'must be a number');
-        }
-        return item;
     },
 
-    'function': function(item, message){
-        if(arguments.length > 1 && typeof(arguments[arguments.length -1]) == 'function'){
-            var args = _.toArray(arguments);
-            return SNAPS.assert._assertCatch('function', args);
+    'function': function (item, message) {
+        var response = (arguments.length > 1 && (typeof(arguments[arguments.length - 1]) == 'function')) ? arguments[arguments.length - 1] : false;
+        if (response) {
+            return check.fn(item) ? item : response();
+        } else {
+            check.verify.fn(item, message);
+            return item;
         }
-        if (!_.isFunction(item)) {
-            throw (message || 'must be a function');
-        }
-        return item;
     },
 
-    int: function(item, message){
-        if(typeof(arguments[arguments.length -1]) == 'function'){
-            var args = _.toArray(arguments);
-            return SNAPS.assert._assertCatch('number', args);
+    int: function (item, message) {
+        var response = (arguments.length > 1 && (typeof(arguments[arguments.length - 1]) == 'function')) ? arguments[arguments.length - 1] : false;
+        if (response) {
+            return check.intNumber(item, message || 'Invalid integer') ? item : response();
+        } else {
+            check.verify.intNumber(item, message || 'Invalid integer');
+            return item;
         }
-        if (!_.isNumber(item)) {
-            throw (message || 'must be a number');
-        }
-        if (item % 1){
-            throw (message || 'must be an integer');
-        }
-        return item;
     },
 
-    or: function(){
+    or: function () {
         var args = _.toArray(arguments);
         var name = args.shift();
         var alt = args.pop();
         try {
-           return SNAPS.assert[name].apply(SNAPS.assert, args);
-        } catch(err){
+            return SNAPS.assert[name].apply(SNAPS.assert, args);
+        } catch (err) {
             return alt;
         }
     },
 
-    string: function(item, message){
-        if(typeof(arguments[arguments.length -1]) == 'function'){
-            var args = _.toArray(arguments);
-            return SNAPS.assert._assertCatch('string', args);
+    string: function (item, message) {
+        var response = (arguments.length > 1 && (typeof(arguments[arguments.length - 1]) == 'function')) ? arguments[arguments.length - 1] : false;
+        if (response) {
+            return check.string(item, message) ? item : response();
+        } else {
+            check.verify.string(item, message);
+            return item;
         }
-        if (!_.isString(item)) {
-            throw (message || 'must be a string');
-        }
-        return item;
     },
 
-    object: function(item, message){
-        if(typeof(arguments[arguments.length -1]) == 'function'){
-            var args = _.toArray(arguments);
-            return SNAPS.assert._assertCatch('object', args);
+    object: function (item, message) {
+        var response = (arguments.length > 1 && (typeof(arguments[arguments.length - 1]) == 'function')) ? arguments[arguments.length - 1] : false;
+        if (response) {
+            return check.object(item, message) ? item : response();
+        } else {
+            check.verify.object(item, message);
+            return item;
         }
-        if (!_.isObject(item)) {
-            throw (message || 'must be an object');
-        }
-        return item;
     },
 
-    array: function(item, message){
-        if(typeof(arguments[arguments.length -1]) == 'function'){
-            var args = _.toArray(arguments);
-            return SNAPS.assert._assertCatch('array', args);
+    obj: function (item, message) {
+        var response = (arguments.length > 1 && (typeof(arguments[arguments.length - 1]) == 'function')) ? arguments[arguments.length - 1] : false;
+        if (response) {
+            return check.object(item, message) ? item : response();
+        } else {
+            check.verify.object(item, message);
+            return item;
         }
-
-        if (!_.isArray(item)) {
-            throw (message || 'must be an array');
-        }
-        return item;
     },
 
-    arrayForce: function(item){
+    array: function (item, message) {
+        var response = (arguments.length > 1 && (typeof(arguments[arguments.length - 1]) == 'function')) ? arguments[arguments.length - 1] : false;
+        if (response) {
+            return check.array(item, message) ? item : response();
+        } else {
+            check.verify.array(item, message);
+            return item;
+        }
+    },
+
+    arrayForce: function (item) {
         return _.isArray(item) ? item : [item];
     },
 
-    type: function (item, typeName, message) {
-        switch (typeName) {
-            case 'number':
-                return SNAPS.assert.number(item, message);
-                break;
-
-            case 'string':
-                return SNAPS.assert.string(item, message);
-                break;
-
-            case 'object':
-                return SNAPS.assert.object(item, message);
-                break;
-
-            case 'array':
-                return SNAPS.assert.array(item,message);
-        }
-        return item;
+    /**
+     * type is mostly deprecated except for the rare case when
+     * the test type is part of a data structure/schema.
+     * @returns {*}
+     */
+    type: function () {
+        var args = _.toArray(arguments);
+        var typeName = args.shift();
+        return SNAPS.assert[typeName].apply(args);
     },
 
-    notempty: function(item, typeName, message){
+    notempty: function (item, typeName, message) {
+        var response = (arguments.length > 1 && (typeof(arguments[arguments.length - 1]) == 'function')) ? arguments[arguments.length - 1] : false;
+
         var args = _.toArray(arguments);
-        if(typeof(arguments[arguments.length -1]) == 'function'){
+        if (typeof(arguments[arguments.length - 1]) == 'function') {
             return SNAPS.assert._assertCatch('notempty', args);
         }
         switch (typeName) {
             case 'string':
+                if (response) {
+                    return check.unemptyString(item, message) ? item : response();
+                } else {
+                    check.verify.unemptyString(item, message);
+                    return item;
+                }
+                break;
             case 'array':
-
-                    if (item.length < 1) {
-                        throw message || 'must be not empty';
+                if (response) {
+                    return check.array(item, message) && item.length ? item : response();
+                } else {
+                    check.verify.array(item, message);
+                    if (!item.length) {
+                        throw new Error(message || 'Array length must be > 0');
                     }
-
+                    return item;
+                }
                 break;
 
             case 'number':
-                return item != 0;
+                if (response) {
+                    return check.number(item) && item ? item : response();
+                } else {
+                    check.verify.number(item, message);
+                    if (!item) {
+                        throw new Error(message || 'Number must be nonzero');
+                    }
+                    return item;
+                }
                 break;
 
             default:
@@ -182,28 +201,36 @@ SNAPS.assert = {
         return item;
     },
 
-    size: function (item, typeName, message, min, max) {
-        var args = _.toArray(arguments);
-        if(typeof(arguments[arguments.length -1]) == 'function'){
-            return SNAPS.assert._assertCatch('size', args);
+    size: function (item, typeName, min, max, message) {
+        var response;
+
+        if (arguments.length > 2 && (typeof(arguments[arguments.length - 1]) == 'function')) {
+            var args = _.toArray(arguments);
+            response = args.pop();
+            message = args[2];
+            min = args[3] || null;
+            max = args[4] || null;
         }
-        if (arguments.length < 4) {
-            min = 1;
-            max = null;
-        }
+
         switch (typeName) {
             case 'string':
             case 'array':
 
                 if (min != null) {
                     if (item.length < min) {
-                        throw message || 'must be at least ' + min;
+                        if (response){
+                            return response('too short');
+                        }
+                        throw new Error(message || 'must be at least ' + min);
                     }
                 }
 
                 if (max != null) {
                     if (item.length > max) {
-                        throw message || 'must be no greater than ' + max;
+                        if (response){
+                            return response('too long');
+                        }
+                        throw new Error(message || 'must be no greater than ' + min);
                     }
                 }
 
@@ -213,13 +240,19 @@ SNAPS.assert = {
 
                 if (min != null) {
                     if (item < min) {
-                        throw message || 'must be at least ' + min;
+                        if (response){
+                            return response('too short');
+                        }
+                        throw new Error(message || 'must be at least ' + min);
                     }
                 }
 
                 if (max != null) {
                     if (item > max) {
-                        throw message || 'must be no greater than ' + max;
+                        if (response){
+                            return response('too long');
+                        }
+                        throw new Error(message || 'must be no greater than ' + min);
                     }
                 }
 
@@ -234,6 +267,7 @@ SNAPS.assert = {
 
 
 };
+
 
 var relId = 0;
 /**
@@ -334,7 +368,7 @@ SNAPS.Observer = function (props, handler, meta) {
     });
     this.target = target;
     this.watching = SNAPS.assert.arrayForce(props.watching);
-
+/*
     if (props.hasOwnProperty('startTime')) {
         this.startTime = props.startTime;
         this.endTime = -1;
@@ -347,7 +381,7 @@ SNAPS.Observer = function (props, handler, meta) {
         }
     } else {
         this.startTime = this.endTime = -1;
-    }
+    }*/
 
     if (this.watching.length) {
         SNAPS.assert.$TYPE(this.target, 'SNAP');
@@ -360,6 +394,7 @@ SNAPS.Observer = function (props, handler, meta) {
 
     this.active = true;
 };
+/*
 
 SNAPS.Observer.prototype.watchTime = function (startDelay, duration) {
     if (startDelay > 0) {
@@ -371,6 +406,7 @@ SNAPS.Observer.prototype.watchTime = function (startDelay, duration) {
         this.meta.endTime = this.space.time + duration;
     }
 };
+*/
 
 SNAPS.Observer.prototype.apply = function (target) {
     target = target || this.target;
@@ -805,6 +841,7 @@ Snap.prototype.updateBlends = function () {
         var endTime = blend.get('endTime');
         var value;
         var endValue = blend.get('endValue');
+
         var progress;
 
         if (endTime <= time) {
@@ -812,8 +849,9 @@ Snap.prototype.updateBlends = function () {
             progress = 1;
             doneBlends.push(blend);
         } else {
+            var blendFn = SNAPS.prototype.assert.or('function', blend.get('blend'), _.identity);
             var startTime = blend.get('startTime');
-            var startValue = blend.get('startValue');
+            var startValue = SNAPS.prototype.assert.or('number', blend.get('startValue'), 0);
             var dur = endTime - startTime;
             progress = time - startTime;
             progress /= dur;

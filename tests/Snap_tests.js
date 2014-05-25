@@ -20,7 +20,7 @@ describe('SNAPS', function () {
                             var snap = new Snap('TESTING')(1);
                             ''.should.eql(1); // force an error -- should not be reached
                         } catch (err) {
-                            err.should.eql('must be an object');
+                            err.message.should.eql('Invalid object');
                         }
                     }
                 );
@@ -30,7 +30,7 @@ describe('SNAPS', function () {
                             var snap = new Snap({$TYPE: 'SPACE'});
                             ''.should.eql(1); // force an error -- should not be reached
                         } catch (err) {
-                            err.should.eql('id must be a number');
+                            err.message.should.eql('id must be a number');
                         }
                     }
                 )
@@ -421,7 +421,6 @@ describe('SNAPS', function () {
                     snap.set('x', 1);
 
                     var o = snap.watch('x', function(changes){
-                        debugger;
                         this.set('y', 2 * changes.x.pending);
                     });
 
@@ -440,7 +439,7 @@ describe('SNAPS', function () {
                 });
             });
 
-            describe ('time watcher', function(){
+            describe ('blends', function(){
 
                 var space;
                 var snap;
@@ -448,11 +447,13 @@ describe('SNAPS', function () {
                 before(function(){
                     space = SNAPS.space();
                     snap = space.snap();
+                    snap.setAndUpdate('y', 0);
+                    snap.blend()
                 });
 
                 it('should set values at times', function(){
 
-                    var calls = 0;
+                /*    var calls = 0;
                     snap.observe({startTime: 10, endTime: 20}, function(progress){
                         this.set('y', progress * 100);
                         ++calls;
@@ -489,7 +490,7 @@ describe('SNAPS', function () {
                     snap.get('y').should.eql(100);
 
                     calls.should.eql(3);
-
+*/
                 });
 
             });

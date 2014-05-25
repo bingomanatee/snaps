@@ -9,8 +9,8 @@
 
 SNAPS.assert = {
 
-    $TYPE: function(obj, $type, message){
-        if(typeof(arguments[arguments.length -1]) == 'function'){
+    $TYPE: function (obj, $type, message) {
+        if (typeof(arguments[arguments.length - 1]) == 'function') {
             var args = _.toArray(arguments);
             return SNAPS.assert._assertCatch('$TYPE', args);
         }
@@ -23,15 +23,15 @@ SNAPS.assert = {
         }
     },
 
-    prop: function(obj, prop, message){
-        if(typeof(arguments[arguments.length -1]) == 'function'){
+    prop: function (obj, prop, message) {
+        if (typeof(arguments[arguments.length - 1]) == 'function') {
             var args = _.toArray(arguments);
             return SNAPS.assert._assertCatch('prop', args);
         }
-        obj = SNAPS.assert.type(obj, 'object');
-        prop = SNAPS.assert.type(prop, 'string', 'SNAPS.assert.prop.argument 2 must be a string');
-        if (obj && prop){
-            if (obj.hasOwnProperty(prop) || (typeof(obj[prop]) != 'undefined')){
+        obj = SNAPS.assert.obj(obj);
+        prop = SNAPS.assert.string(prop, 'SNAPS.assert.prop.argument 2 must be a string');
+        if (obj && prop) {
+            if (obj.hasOwnProperty(prop) || (typeof(obj[prop]) != 'undefined')) {
                 return obj[prop];
             } else {
                 throw (message || 'object does not have a property ' + prop);
@@ -39,137 +39,149 @@ SNAPS.assert = {
         }
     },
 
-    _assertCatch: function(name, args){
+    _assertCatch: function (name, args) {
         var catcher = args.pop();
         try {
             return SNAPS.assert[name].apply(SNAPS.assert, args);
-        } catch(err){
+        } catch (err) {
             return catcher(args, err, 'type');
         }
     },
 
-    number: function(item, message){
-        if(typeof(arguments[arguments.length -1]) == 'function'){
-            var args = _.toArray(arguments);
-            return SNAPS.assert._assertCatch('number', args);
+    number: function (item, message) {
+        var response = (arguments.length > 1 && (typeof(arguments[arguments.length - 1]) == 'function')) ? arguments[arguments.length - 1] : false;
+        if (response) {
+            return check.number(item) ? item : response();
+        } else {
+            check.verify.number(item, message);
+            return item;
         }
-        if (!_.isNumber(item)) {
-            throw (message || 'must be a number');
-        }
-        return item;
     },
 
-    'function': function(item, message){
-        if(arguments.length > 1 && typeof(arguments[arguments.length -1]) == 'function'){
-            var args = _.toArray(arguments);
-            return SNAPS.assert._assertCatch('function', args);
+    'function': function (item, message) {
+        var response = (arguments.length > 1 && (typeof(arguments[arguments.length - 1]) == 'function')) ? arguments[arguments.length - 1] : false;
+        if (response) {
+            return check.fn(item) ? item : response();
+        } else {
+            check.verify.fn(item, message);
+            return item;
         }
-        if (!_.isFunction(item)) {
-            throw (message || 'must be a function');
-        }
-        return item;
     },
 
-    int: function(item, message){
-        if(typeof(arguments[arguments.length -1]) == 'function'){
-            var args = _.toArray(arguments);
-            return SNAPS.assert._assertCatch('number', args);
+    int: function (item, message) {
+        var response = (arguments.length > 1 && (typeof(arguments[arguments.length - 1]) == 'function')) ? arguments[arguments.length - 1] : false;
+        if (response) {
+            return check.intNumber(item, message || 'Invalid integer') ? item : response();
+        } else {
+            check.verify.intNumber(item, message || 'Invalid integer');
+            return item;
         }
-        if (!_.isNumber(item)) {
-            throw (message || 'must be a number');
-        }
-        if (item % 1){
-            throw (message || 'must be an integer');
-        }
-        return item;
     },
 
-    or: function(){
+    or: function () {
         var args = _.toArray(arguments);
         var name = args.shift();
         var alt = args.pop();
         try {
-           return SNAPS.assert[name].apply(SNAPS.assert, args);
-        } catch(err){
+            return SNAPS.assert[name].apply(SNAPS.assert, args);
+        } catch (err) {
             return alt;
         }
     },
 
-    string: function(item, message){
-        if(typeof(arguments[arguments.length -1]) == 'function'){
-            var args = _.toArray(arguments);
-            return SNAPS.assert._assertCatch('string', args);
+    string: function (item, message) {
+        var response = (arguments.length > 1 && (typeof(arguments[arguments.length - 1]) == 'function')) ? arguments[arguments.length - 1] : false;
+        if (response) {
+            return check.string(item, message) ? item : response();
+        } else {
+            check.verify.string(item, message);
+            return item;
         }
-        if (!_.isString(item)) {
-            throw (message || 'must be a string');
-        }
-        return item;
     },
 
-    object: function(item, message){
-        if(typeof(arguments[arguments.length -1]) == 'function'){
-            var args = _.toArray(arguments);
-            return SNAPS.assert._assertCatch('object', args);
+    object: function (item, message) {
+        var response = (arguments.length > 1 && (typeof(arguments[arguments.length - 1]) == 'function')) ? arguments[arguments.length - 1] : false;
+        if (response) {
+            return check.object(item, message) ? item : response();
+        } else {
+            check.verify.object(item, message);
+            return item;
         }
-        if (!_.isObject(item)) {
-            throw (message || 'must be an object');
-        }
-        return item;
     },
 
-    array: function(item, message){
-        if(typeof(arguments[arguments.length -1]) == 'function'){
-            var args = _.toArray(arguments);
-            return SNAPS.assert._assertCatch('array', args);
+    obj: function (item, message) {
+        var response = (arguments.length > 1 && (typeof(arguments[arguments.length - 1]) == 'function')) ? arguments[arguments.length - 1] : false;
+        if (response) {
+            return check.object(item, message) ? item : response();
+        } else {
+            check.verify.object(item, message);
+            return item;
         }
-
-        if (!_.isArray(item)) {
-            throw (message || 'must be an array');
-        }
-        return item;
     },
 
-    arrayForce: function(item){
+    array: function (item, message) {
+        var response = (arguments.length > 1 && (typeof(arguments[arguments.length - 1]) == 'function')) ? arguments[arguments.length - 1] : false;
+        if (response) {
+            return check.array(item, message) ? item : response();
+        } else {
+            check.verify.array(item, message);
+            return item;
+        }
+    },
+
+    arrayForce: function (item) {
         return _.isArray(item) ? item : [item];
     },
 
-    type: function (item, typeName, message) {
-        switch (typeName) {
-            case 'number':
-                return SNAPS.assert.number(item, message);
-                break;
-
-            case 'string':
-                return SNAPS.assert.string(item, message);
-                break;
-
-            case 'object':
-                return SNAPS.assert.object(item, message);
-                break;
-
-            case 'array':
-                return SNAPS.assert.array(item,message);
-        }
-        return item;
+    /**
+     * type is mostly deprecated except for the rare case when
+     * the test type is part of a data structure/schema.
+     * @returns {*}
+     */
+    type: function () {
+        var args = _.toArray(arguments);
+        var typeName = args.shift();
+        return SNAPS.assert[typeName].apply(args);
     },
 
-    notempty: function(item, typeName, message){
+    notempty: function (item, typeName, message) {
+        var response = (arguments.length > 1 && (typeof(arguments[arguments.length - 1]) == 'function')) ? arguments[arguments.length - 1] : false;
+
         var args = _.toArray(arguments);
-        if(typeof(arguments[arguments.length -1]) == 'function'){
+        if (typeof(arguments[arguments.length - 1]) == 'function') {
             return SNAPS.assert._assertCatch('notempty', args);
         }
         switch (typeName) {
             case 'string':
+                if (response) {
+                    return check.unemptyString(item, message) ? item : response();
+                } else {
+                    check.verify.unemptyString(item, message);
+                    return item;
+                }
+                break;
             case 'array':
-
-                    if (item.length < 1) {
-                        throw message || 'must be not empty';
+                if (response) {
+                    return check.array(item, message) && item.length ? item : response();
+                } else {
+                    check.verify.array(item, message);
+                    if (!item.length) {
+                        throw new Error(message || 'Array length must be > 0');
                     }
-
+                    return item;
+                }
                 break;
 
             case 'number':
-                return item != 0;
+                if (response) {
+                    return check.number(item) && item ? item : response();
+                } else {
+                    check.verify.number(item, message);
+                    if (!item) {
+                        throw new Error(message || 'Number must be nonzero');
+                    }
+                    return item;
+                }
                 break;
 
             default:
@@ -178,28 +190,36 @@ SNAPS.assert = {
         return item;
     },
 
-    size: function (item, typeName, message, min, max) {
-        var args = _.toArray(arguments);
-        if(typeof(arguments[arguments.length -1]) == 'function'){
-            return SNAPS.assert._assertCatch('size', args);
+    size: function (item, typeName, min, max, message) {
+        var response;
+
+        if (arguments.length > 2 && (typeof(arguments[arguments.length - 1]) == 'function')) {
+            var args = _.toArray(arguments);
+            response = args.pop();
+            message = args[2];
+            min = args[3] || null;
+            max = args[4] || null;
         }
-        if (arguments.length < 4) {
-            min = 1;
-            max = null;
-        }
+
         switch (typeName) {
             case 'string':
             case 'array':
 
                 if (min != null) {
                     if (item.length < min) {
-                        throw message || 'must be at least ' + min;
+                        if (response){
+                            return response('too short');
+                        }
+                        throw new Error(message || 'must be at least ' + min);
                     }
                 }
 
                 if (max != null) {
                     if (item.length > max) {
-                        throw message || 'must be no greater than ' + max;
+                        if (response){
+                            return response('too long');
+                        }
+                        throw new Error(message || 'must be no greater than ' + min);
                     }
                 }
 
@@ -209,13 +229,19 @@ SNAPS.assert = {
 
                 if (min != null) {
                     if (item < min) {
-                        throw message || 'must be at least ' + min;
+                        if (response){
+                            return response('too short');
+                        }
+                        throw new Error(message || 'must be at least ' + min);
                     }
                 }
 
                 if (max != null) {
                     if (item > max) {
-                        throw message || 'must be no greater than ' + max;
+                        if (response){
+                            return response('too long');
+                        }
+                        throw new Error(message || 'must be no greater than ' + min);
                     }
                 }
 

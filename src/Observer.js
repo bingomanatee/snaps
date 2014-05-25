@@ -23,7 +23,7 @@ SNAPS.Observer = function (props, handler, meta) {
     });
     this.target = target;
     this.watching = SNAPS.assert.arrayForce(props.watching);
-
+/*
     if (props.hasOwnProperty('startTime')) {
         this.startTime = props.startTime;
         this.endTime = -1;
@@ -36,7 +36,7 @@ SNAPS.Observer = function (props, handler, meta) {
         }
     } else {
         this.startTime = this.endTime = -1;
-    }
+    }*/
 
     if (this.watching.length) {
         SNAPS.assert.$TYPE(this.target, 'SNAP');
@@ -49,6 +49,7 @@ SNAPS.Observer = function (props, handler, meta) {
 
     this.active = true;
 };
+/*
 
 SNAPS.Observer.prototype.watchTime = function (startDelay, duration) {
     if (startDelay > 0) {
@@ -60,6 +61,7 @@ SNAPS.Observer.prototype.watchTime = function (startDelay, duration) {
         this.meta.endTime = this.space.time + duration;
     }
 };
+*/
 
 SNAPS.Observer.prototype.apply = function (target) {
     target = target || this.target;

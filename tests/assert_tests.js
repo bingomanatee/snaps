@@ -1,6 +1,7 @@
 var should = require('should');
 var SNAPS = require('./../snaps');
 var _ = require('lodash');
+var util = require('util');
 
 describe('SNAPS', function () {
 
@@ -9,45 +10,41 @@ describe('SNAPS', function () {
 
             describe('string', function () {
                 it('should return input for string', function () {
-                    SNAPS.assert.type('foo', 'string').should.eql('foo');
+                    SNAPS.assert.string('foo').should.eql('foo');
                 });
 
                 it('should return err for object', function () {
-                    var result;
                     try {
-                        result = SNAPS.assert.type({}, 'string');
+                        SNAPS.assert.string({});
+                        ''.should.eql(2); // should never get this far.
                     } catch (err) {
-                        err.should.eql('must be a string');
-                        result = err;
+                        err.message.should.eql('Invalid string');
                     }
-
-                    result.should.not.eql('foo');
                 });
 
                 it('should return err for number', function () {
-                    var result;
                     try {
-                        result = SNAPS.assert.type(1, 'string');
+                        SNAPS.assert.string(1);
+                        ''.should.eql(2); // should never get this far.
                     } catch (err) {
-                        err.should.eql('must be a string');
+                        console.log('error: %s', util.inspect(err));
+                        err.message.should.eql('Invalid string');
                         result = err;
                     }
-
-                    result.should.not.eql(1);
                 });
             });
 
             describe('number', function () {
                 it('should return input for number', function () {
-                    SNAPS.assert.type(1, 'number').should.eql(1);
+                    SNAPS.assert.number(1).should.eql(1);
                 });
 
                 it('should return err for string', function () {
                     var result;
                     try {
-                        result = SNAPS.assert.type('1', 'number');
+                        result = SNAPS.assert.number('1');
                     } catch (err) {
-                        err.should.eql('must be a number');
+                        err.message.should.eql('Invalid number');
                         result = err;
                     }
 
@@ -57,29 +54,27 @@ describe('SNAPS', function () {
 
             describe('array', function () {
                 it('should return input for array', function () {
-                    SNAPS.assert.type([], 'array').should.eql([]);
+                    SNAPS.assert.array([]).should.eql([]);
                 });
 
                 it('should return err for string', function () {
-                    var result;
                     try {
-                        result = SNAPS.assert.type('', 'array');
+                        result = SNAPS.assert.array('');
+                        ''.should.eql(2); // should never get this far.
                     } catch (err) {
-                        err.should.eql('must be an array');
+                        err.message.should.eql('Invalid array');
                         result = err;
                     }
-
-                    result.should.not.eql(1);
                 });
             });
 
-            describe('arrayForce', function(){
+            describe('arrayForce', function () {
 
-                it('should not alter an array', function(){
+                it('should not alter an array', function () {
                     SNAPS.assert.arrayForce(['foo']).should.eql(['foo']);
                 });
 
-                it('should put any non array content into an array', function(){
+                it('should put any non array content into an array', function () {
 
                     SNAPS.assert.arrayForce('bar').should.eql(['bar']);
                 })
@@ -87,8 +82,8 @@ describe('SNAPS', function () {
 
         });
 
-        describe ('int', function(){
-            it('should return a valid int', function(){
+        describe('int', function () {
+            it('should return a valid int', function () {
 
                 SNAPS.assert.int(2).should.eql(2);
             });
@@ -98,18 +93,18 @@ describe('SNAPS', function () {
                     var result = SNAPS.assert.int(1.1);
                     ''.should.eql(2); // thrown if we get here -- which we shouldn't...
                 } catch (err) {
-                    err.should.eql('must be an integer');
+                    err.message.should.eql('Invalid integer');
                 }
-            })
+            });
 
             it('should throw an error on a non number', function () {
                 try {
                     var result = SNAPS.assert.int([]);
                     ''.should.eql(2); // thrown if we get here -- which we shouldn't...
                 } catch (err) {
-                    err.should.eql('must be a number');
+                    err.message.should.eql('Invalid integer');
                 }
-            })
+            });
         });
 
         describe('#prop', function () {
@@ -145,17 +140,52 @@ describe('SNAPS', function () {
 
         });
 
-        describe ('#or', function(){
+        describe('#or', function () {
 
-           it('should return the result if type matches', function(){
-               SNAPS.assert.or('array', [1, 2, 3], [4, 5, 6]).should.eql([1,2,3]);
-               SNAPS.assert.or('object', {a: 1, b: 2}, {a: 3, b: 4}).should.eql({a: 1, b: 2});
-           })
+            it('should return the result if type matches', function () {
+                SNAPS.assert.or('array', [1, 2, 3], [4, 5, 6]).should.eql([1, 2, 3]);
+                SNAPS.assert.or('object', {a: 1, b: 2}, {a: 3, b: 4}).should.eql({a: 1, b: 2});
+            })
 
         });
+
+        describe('#size', function () {
+            describe('<number>', function () {
+
+                it('should allow a number of the proper size', function () {
+                    SNAPS.assert.size(4, 'number', 1, 5).should.eql(4);
+                });
+
+                it('should not allow a number of the proper size', function () {
+                    try {
+                        SNAPS.assert.size(10, 'number', 1, 5).should.eql(4);
+                        ''.should.eql(1); // should never reach
+                    } catch (err) {
+                        err.message.should.eql("must be no greater than 1");
+                    }
+                });
+            })
+
+            describe('<array>', function () {
+
+                it('should allow a number of the proper size', function () {
+                    SNAPS.assert.size([1, 2], 'array', 1, 5).should.eql([1, 2]);
+                });
+
+                it('should not allow a number of the proper size', function () {
+                    try {
+                        SNAPS.assert.size([1, 2], 'array', 3, 5).should.eql([1, 2]);
+                        ''.should.eql(1); // should never reach
+                    } catch (err) {
+                        err.message.should.eql("must be at least 3");
+                    }
+                });
+            })
+
+        })
     });
 
-    describe('misc', function(){
+    describe('misc', function () {
 
     })
 
