@@ -138,42 +138,6 @@ Snap.prototype.merge = function (prop, value, combiner) {
     this.set(prop, value);
 };
 
-Snap.prototype.update = function (broadcast) {
-    if (!this.active) {
-        // shouldn't be possible but just in case
-        return;
-    }
-
-    if (this.blendCount > 0) {
-        this.updateBlends();
-    }
-
-    if (this.hasUpdates()) {
-        for (i = 0; i < this.observers.length; ++i) {
-            this.observers[i].apply();
-        }
-    } else { // do any time based transitions
-        for (i = 0; i < this.observers.length; ++i) {
-            if (this.observers[i].startTime > -1) {
-                this.observers[i].apply();
-            }
-        }
-    }
-
-    _.extend(this._props, this._pendingChanges);
-
-    if (this.output) {
-        this.lastChanges = this.pending();
-    } else {
-        this.lastChanges = false;
-    }
-
-    this._pendingChanges = {};
-    if (broadcast) {
-        this.broadcast('child', 'update');
-    }
-};
-
 Snap.prototype.removeRel = function (rel) {
 
 }
@@ -207,12 +171,14 @@ Snap.prototype.set = function (prop, value, immediate) {
 };
 
 Snap.prototype.del = function (prop) {
-    this.set(prop, SNAP.DELETE);
+    this.set(prop, SNAPS.DELETE);
+    return this;
 };
 
 Snap.prototype.setAndUpdate = function (prop, value) {
     this.set(prop, value);
     this.update(true);
+    return this;
 };
 
 Snap.prototype.get = function (prop, pending) {

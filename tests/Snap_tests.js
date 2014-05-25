@@ -54,7 +54,7 @@ describe('SNAPS', function () {
             })
         });
 
-        describe('get and set', function () {
+        describe('#get and #set', function () {
             var space;
             var snap;
 
@@ -205,8 +205,10 @@ describe('SNAPS', function () {
                         return r.toJSON();
                     });
 
-                    foos.should.eql([ { fromId: 0, toId: 1, relType: 'foo' },
-                        { fromId: 0, toId: 2, relType: 'foo' } ]);
+                    foos.should.eql([
+                        { fromId: 0, toId: 1, relType: 'foo' },
+                        { fromId: 0, toId: 2, relType: 'foo' }
+                    ]);
                 });
 
                 it('should get 1s', function () {
@@ -406,21 +408,21 @@ describe('SNAPS', function () {
 
         });
 
-        describe('observers', function(){
-            describe('change watcher', function(){
+        describe('observers', function () {
+            describe('change watcher', function () {
                 var space;
                 var snap;
 
-                before(function(){
+                before(function () {
                     space = SNAPS.space();
                     snap = space.snap();
                 });
 
-                it('should handle change', function(){
+                it('should handle change', function () {
 
                     snap.set('x', 1);
 
-                    var o = snap.watch('x', function(changes){
+                    var o = snap.watch('x', function (changes) {
                         this.set('y', 2 * changes.x.pending);
                     });
 
@@ -441,19 +443,39 @@ describe('SNAPS', function () {
 
         });
 
-        describe ('blends', function(){
+        describe('#del', function () {
+            var space;
+            var snap;
+
+            before(function () {
+                space = SNAPS.space();
+                snap = space.snap();
+            });
+
+            it('should let you set and delete a property', function () {
+                snap.hasUpdates().should.eql(false);
+                snap.set('foo', 1);
+                new String(typeof( snap.get('foo'))).should.eql('undefined');
+                snap.update();
+                snap.get('foo').should.eql(1);
+                snap.del('foo').update();
+                new String(typeof( snap.get('foo'))).should.eql('undefined');
+            });
+        });
+
+        describe('blends', function () {
 
             var space;
             var snap;
 
-            before(function(){
+            before(function () {
                 space = SNAPS.space();
                 snap = space.snap();
                 snap.setAndUpdate('y', 0);
                 snap.blend('y', 100, 50);
             });
 
-            it('should set values at times', function(){
+            it('should set values at times', function () {
 
                 snap.get('y').should.eql(0);
                 snap.blendCount.should.eql(1);
