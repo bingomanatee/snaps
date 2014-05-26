@@ -33,26 +33,42 @@ describe('SNAPS', function () {
     });
 
     describe('#snap', function () {
+        var space;
+
+        beforeEach(function(){
+             space = SNAPS.space();
+        });
+
+        it('should return snap if no parameters passed', function(){
+            var snap = space.snap();
+            snap.$TYPE.should.eql('SNAP');
+            snap.simple.should.eql(false);
+        });
 
         it('should return empty if missing snap requested', function () {
+            space.snap(0).invalid.should.eql(true);
+        });
 
-            var space = SNAPS.space();
-            new String(typeof(space.snap(0))).should.eql('undefined');
+        it('should return snap if valid snap ID requested', function () {
+            var snap = space.snap();
+            space.snap(snap.id);
+            snap.$TYPE.should.eql('SNAP');
+            snap.simple.should.eql(false);
 
         });
 
-        it('should throw error if second parameter of snap is set', function(){
+        it('should return simple snap if true passed', function () {
+            var snap = space.snap(true);
+            snap.$TYPE.should.eql('SNAP');
+            snap.simple.should.eql(true);
 
-            var space = SNAPS.space();
+        });
 
-            try{
-                space.snap(0, true);
-                ''.should.eql('should not get this far');
-            } catch(err){
-                err.should.eql('cannot find snap 0');
-            }
-
+        it('should return snap with preset properties if object passed', function(){
+            var snap = space.snap({x: 1});
+            snap.$TYPE.should.eql('SNAP');
+            snap.simple.should.eql(false);
+            snap.get('x').should.eql(1)
         })
-
     })
 });

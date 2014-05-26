@@ -15,29 +15,48 @@ Space.prototype.resetTime = function () {
     this.time = 0;
 };
 
-Space.prototype.setTime = function(n){
+Space.prototype.setTime = function (n) {
     this.time = n;
     return this;
 };
 
-Space.prototype.snap = function (id, throwIfMissing) {
+/**
+ * this is a heavily overloaded function
+ *
+ *  -- with no arguments: returns a new Snap
+ *  -- if is a number: returns existing Snap by ID
+ *  -- if is true: returns a new "simple" Snap
+ *  -- if is object: returns a new Snap with a preset property list.
+ *
+ * @param input
+ * @returns {*}
+ */
+Space.prototype.snap = function (input) {
+    var snap;
+
     if (arguments.length) {
-        if (!this.snaps[id] && throwIfMissing) {
-            throw 'cannot find snap ' + id;
+        if (_.isObject(input)) {
+            snap = new Snap(this, this.snaps.length, input);
+            this.snaps.push(snap);
+        } else if (input === true) {
+            snap = new Snap(this, this.snaps.length, {simple: true});
+            this.snaps.push(snap);
+        } else {
+            snap = this.snaps[input] || SNAPS.INVALID_SNAP_ID;
         }
-        return this.snaps[id];
+    } else {
+        snap = new Snap(this, this.snaps.length);
+        this.snaps.push(snap);
     }
-    var snap = new Snap(this, this.snaps.length);
-    this.snaps.push(snap);
     return snap;
 };
 
-Space.prototype.bd = function(props, ele, parent){
+Space.prototype.bd = function (props, ele, parent) {
     props = SNAPS.assert.or('object', props, {});
-    if (ele){
+    if (ele) {
         props.element = ele;
     }
-    if (parent){
+    if (parent) {
         props.addElement = parent;
     }
 
@@ -56,7 +75,6 @@ Space.prototype.update = function (next) {
 
     var i;
     var snap;
-
 
     var l = this.snaps.length;
 

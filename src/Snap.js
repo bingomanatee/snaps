@@ -1,5 +1,15 @@
 /**
- * A Snap ("Synapse") is a collection of properties, related to other Snaps through relationships.
+ * A Snap ("Synapse") is a collection of properties,
+ * related to other Snaps through relationships.
+ *
+ * simple mode
+ * ===========
+ * Because relationships require target snaps and snaps have a significant overhead,
+ * the option exists to set the snap to "simple mode" in which most of its subobjects
+ * and all relationship/observer behavior are disabled.
+ *
+ * In simple mode, the snap is simply a property collection with an ID,
+ * and its get/set methods immediately update its properties.
  *
  * @param space {SNAPS.Space} a collection of snaps
  * @param id {int} the place in the space array that the snap exists in
@@ -9,7 +19,8 @@
 function Snap(space, id, props) {
     this.space = SNAPS.assert.$TYPE(space, 'SPACE');
     this.id = SNAPS.assert.int(id, 'id must be a number');
-    this.simple = props && props.simple;
+    this.invalid = false;
+    this.simple = !!(props && props.simple);
     if (this.simple) delete props.simple;
     /**
      * _props are the public properties of the snap. Do not access this directly -- use get and set.
