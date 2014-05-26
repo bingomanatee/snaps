@@ -35,11 +35,15 @@ Snap.prototype.getLinks = function (linkType, filter) {
     });
 };
 
-Snap.prototype.nodeChildren = function (ids) {
+Snap.prototype.nodeChildNodes = function () {
     var myId = this.id;
-    var nodes = this.getLinks('node', function (n) {
+    return this.getLinks('node', function (n) {
         return n.ids[0] == myId;
     });
+};
+
+Snap.prototype.nodeChildren = function (ids) {
+    var nodes = this.nodeChildNodes();
 
     return _.map(nodes, function (n) {
         return n.get(1, ids);

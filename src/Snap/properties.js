@@ -48,7 +48,7 @@ Snap.prototype.set = function (prop, value, immediate) {
     }
     this._myProps[prop] = value;
     this._pendingChanges[prop] = value;
-    this.broadcast('child', 'inherit', prop, value);
+    this.broadcast('inherit', prop, value);
     return this;
 };
 

@@ -153,7 +153,7 @@ Snap.prototype.hear = function (message, prop, value) {
             }
             this._pendingChanges[prop] = value;
 
-            this.broadcast('child', 'inherit', prop, value);
+            this.broadcast('inherit', prop, value);
             break;
 
         case 'update':

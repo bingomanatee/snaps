@@ -33,10 +33,6 @@ Snap.prototype.updatePhysics = function () {
     var changes = {};
 };
 
-Snap.prototype.broadcastToChildren = function () {
-    this.broadcast('child', 'update');
-};
-
 Snap.prototype.cleanupDeleted = function () {
     SNAPS.cleanObj(this._props);
     SNAPS.cleanObj(this._myProps);
