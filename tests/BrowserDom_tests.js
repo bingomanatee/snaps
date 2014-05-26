@@ -123,6 +123,36 @@ describe('SNAPS', function () {
                 });
             });
 
+            describe('#destroy', function () {
+                var space, bd;
+                var document, window, div;
+
+                before(function (done) {
+
+                    dom.env(
+                        '<html><body></body></html>',
+                        [],
+                        function (errors, w) {
+                            window = w;
+                            document = window.document;
+                            div = document.createElement('div');
+                            document.body.appendChild(div);
+
+                            space = SNAPS.space();
+                            bd = space.bd({}, div, document.body);
+                            done();
+                        }
+                    );
+                });
+
+                it('should remove itself from DOM when destroyed', function () {
+                    document.body.outerHTML.should.eql("<body><div></div></body>");
+                    bd.destroy();
+                    document.body.outerHTML.should.eql("<body></body>");
+
+                });
+            });
+
             describe('attributes and elements', function () {
                 var space, bd;
                 var document, window, div;

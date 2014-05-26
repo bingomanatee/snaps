@@ -510,6 +510,8 @@ var _styleOverrides = {
     height: true
 };
 
+var _htmlRE = /html|content/i;
+
 /**
  * BrowserDom is an element bridge between a DOM element
  * and properties of a snap instance.
@@ -544,13 +546,17 @@ SNAPS.BrowserDom = function (space, props) {
     }
 
     for (var p in props) {
-        var pp = p.toLowerCase();
-        if (_styleOverrides[pp]) {
-            this.styleSnap.set(pp, props[p]);
-        } else if (_attrs[pp]) {
-            this.attrSnap.set(pp, props[p]);
+        if (_htmlRE.test(p)){
+            this.h(props[p]);
         } else {
-            this.styleSnap.set(pp, props[p]);
+            var pp = p.toLowerCase();
+            if (_styleOverrides[pp]) {
+                this.styleSnap.set(pp, props[p]);
+            } else if (_attrs[pp]) {
+                this.attrSnap.set(pp, props[p]);
+            } else {
+                this.styleSnap.set(pp, props[p]);
+            }
         }
     }
 };
@@ -561,7 +567,7 @@ function _styleSnapChanges(eleSnap) {
     for (var p in eleSnap.lastChanges) {
         var value = eleSnap.lastChanges[p].pending;
 
-        if (value == SNAPS.DELETE) {
+        if (value === SNAPS.DELETE) {
             this.element.style.removeProperty(p);
         } else {
             this.s(p, value);
@@ -573,7 +579,7 @@ function _attrSnapChanges(attrSnap) {
     for (var p in attrSnap.lastChanges) {
         var value = attrSnap.lastChanges[p].pending;
 
-        if (value == SNAPS.DELETE) {
+        if (value === SNAPS.DELETE) {
             this.element.removeAttribute(p);
         } else {
             this.a(p, value);
@@ -587,6 +593,26 @@ SNAPS.BrowserDom.prototype.initOutput = function () {
     this.styleSnap.addOutput(_styleSnapChanges.bind(this));
 };
 
+SNAPS.BrowserDom.prototype.set = function (prop, value) {
+    this.attrSnap.set(prop, value);
+};
+
+SNAPS.BrowserDom.prototype.merge = function (prop, value, c) {
+    this.attrSnap.merge(prop, value, c);
+};
+
+SNAPS.BrowserDom.prototype.setStyle = function (prop, value) {
+    this.styleSnap.set(prop, value);
+};
+
+SNAPS.BrowserDom.prototype.destroy = function (prop, value) {
+    this.removeElement();
+    this.attrSnap.destroy();
+    this.styleSnap.destroy();
+    if (this.dataSnap){
+        this.dataSnap.destroy();
+    }
+};
 SNAPS.BrowserDom.prototype.addElement = function (parent) {
     if (!parent) {
         parent = document.body;
@@ -606,6 +632,10 @@ SNAPS.BrowserDom.prototype.h = SNAPS.BrowserDom.prototype.html = function (value
 
 SNAPS.BrowserDom.prototype.a = SNAPS.BrowserDom.prototype.attr = function (prop, value) {
 
+    if (dataRE.test(prop)) {
+        var args = _.toArray(arguments);
+        return this.d.apply(this, args);
+    }
     if (arguments.length > 1) {
         this.element.setAttribute(prop, value);
         return this;
@@ -614,32 +644,71 @@ SNAPS.BrowserDom.prototype.a = SNAPS.BrowserDom.prototype.attr = function (prop,
     }
 };
 
-SNAPS.BrowserDom.prototype.s = SNAPS.BrowserDom.prototype.style = function (prop, value) {
+/**
+ * these are properties for which if numbers are provide a 'px' should be suffixed
+ */
+var _pxProps = _.reduce('border-bottom-width,border-left-width,border-radius,border-right-width,border-top-width,border-width,bottom,column-rule-width,column-width,columns,height,left,letter-spacing,line-height,margin,margin-bottom,margin-left,margin-right,margin-top,max-height,max-width,min-height,min-width,nav-down,nav-index,nav-left,nav-right,nav-up,outline-width,overflow-x,overflow-y,padding,padding-bottom,padding-left,padding-right,padding-top,right,tab-size,text-indent,text-justify,top,width'.split(','),
+    function (out, p) {
+        out[p] = true;
+        return out;
+    }, {});
 
+SNAPS.BrowserDom.prototype.s = SNAPS.BrowserDom.prototype.style = function (prop, value) {
     if (arguments.length > 1) {
+        if (typeof(value) == 'number' && _pxProps[prop.toLowerCase()]) {
+            value = Math.round(value) + 'px';
+        }
+
         this.element.style[prop] = value;
+
         return this;
     } else {
         return this.element.style[prop];
     }
 };
 
-SNAPS.removeElement = function () {
-    if (this.element.parent) {
-        this.element.parent.removeChild(this.element);
+//@TODO: park dom nodes in a pool
+SNAPS.BrowserDom.prototype.removeElement = function () {
+    var parent = this.element.parentNode;
+    if (parent) {
+        parent.removeChild(this.element);
     }
 };
 
-SNAPS.BrowserDom.prototype.set = function (prop, value) {
-    this.attrSnap.set(prop, value);
-};
+/**
+ * data is kept in its own snap as it has different significance in use
+ *
+ * @type {RegExp}
+ */
 
-SNAPS.BrowserDom.prototype.merge = function (prop, value, c) {
-    this.attrSnap.merge(prop, value, c);
-};
+var dataRE = /^data-/i;
+SNAPS.BrowserDom.prototype.d =
+    SNAPS.BrowserDom.prototype.data = function (prop, value) {
+        prop = prop.replace(dataRE, '').toLowerCase();
 
-SNAPS.BrowserDom.prototype.setStyle = function (prop, value) {
-    this.styleSnap.set(prop, value);
+        if (arguments.length > 1) {
+            if (!this.dataSnap) {
+                this._initDataSnap();
+            }
+            this.dataSnap.set(prop, value);
+        } else {
+            if (!this.dataSnap || !this.dataSnap.has(prop)) {
+                return null;
+            } else {
+                return this.dataSnap.get(prop);
+            }
+        }
+
+    };
+
+SNAPS.BrowserDom.prototype._initDataSnap = function () {
+    this.dataSnap = this.space.snap();
+    for (var i = 0, attrs = this.element.attributes, l = attrs.length; i < l; i++) {
+        var attr = (attrs.item(i).nodeName);
+        if (dataRE.test(attr)) {
+            this.d(this.a(attr));
+        }
+    }
 };
 /**
  * A Snap ("Synapse") is a collection of properties, related to other Snaps through relationships.
@@ -649,16 +718,18 @@ SNAPS.BrowserDom.prototype.setStyle = function (prop, value) {
  * @constructor
  */
 
-function Snap(space, id) {
+function Snap(space, id, props) {
     this.space = SNAPS.assert.$TYPE(space, 'SPACE');
     this.id = SNAPS.assert.int(id, 'id must be a number');
-
+    this.simple = props && props.simple;
+    if (this.simple) delete props.simple;
     /**
      * _props are the public properties of the snap. Do not access this directly -- use get and set.
      * @type {Object}
      */
 
-    this._props = {};
+    this._props = props || {};
+    if (this.simple) return;
 
     /**
      * _myProps are properties whose value has been set at this snap -- as distinct
@@ -691,7 +762,11 @@ function Snap(space, id) {
     this.active = true;
 
     this.blendCount = 0;
+    this.physicsCount = 0;
+
+    this.initUpdated();
 }
+
 
 Snap.prototype.$TYPE = 'SNAP';
 
@@ -699,247 +774,12 @@ Snap.prototype.state = function () {
     return _.clone(this._props);
 };
 
-Snap.prototype.getRels = function (relType) {
-    return _.reduce(this.rels, function (list, rel) {
-        if (rel.relType == relType) {
-            list.push(rel);
-        }
-        return list;
-    }, []);
-};
-
-Snap.prototype.rel = function (relType, toId, meta) {
-    var rel = new SNAPS.Rel({
-        space: this.space,
-        relType: relType,
-        from: this,
-        to: toId,
-        order: this.getRels(relType).length
-    }, meta);
-    this.rels.push(rel);
-    return rel;
-};
-
-/**
- * gets a subset of relationships;
- * can filter by relType (if string),
- * toId (if number), or functionally.
- * Any number of filters can be passed; if none are, all rels are returned;
- * @returns {Array}
- */
-Snap.prototype.getRels = function () {
-    if (!arguments.length) {
-        return this.rels.slice();
-    }
-
-    var i;
-    var out;
-    var rels = this.rels;
-
-    for (var a = 0; a < arguments.length; ++a) {
-        out = [];
-        var filter = arguments[a];
-        if (_.isString(filter)) {
-            for (i = 0; i < rels.length; ++i) {
-                if (rels[i].relType == filter) {
-                    out.push(rels[i]);
-                }
-            }
-        } else if (_.isNumber(filter)) {
-            for (i = 0; i < rels.length; ++i) {
-                if (rels[i].toId == filter) {
-                    out.push(rels[i]);
-                }
-            }
-        } else if (_.isFunction(filter)) {
-            out = _.filter(rels, filter);
-        }
-        rels = out;
-    }
-
-    return out;
-};
-
-Snap.prototype.merge = function (prop, value, combiner) {
-    if (!this.has(prop)) {
-        return this.set(prop, value);
-    }
-
-    var oldValue = this.get(prop);
-    if (combiner) {
-        value = combiner(value, oldValue);
-    } else if (_.isArray(prop)) {
-        if (_.isArray(oldValue)) {
-            value = (oldValue.concat(value));
-        }
-    } else if (_.isObject(value)) {
-        if (_.isObject(oldValue)) {
-            _.defaults(value, oldValue);
-        }
-    } // otherwise, set
-
-    this.set(prop, value);
-};
-
-Snap.prototype.removeRel = function (rel) {
-
-}
-
-/**
- * applies an update for a single property; only broacasts if that property has an update.
- *
- * @param prop
- * @param broadcast
- */
-
-Snap.prototype.updateProp = function (prop, broadcast) {
-    if (this._pendingChanges.hasOwnProperty(prop)) {
-        this._props[prop] = this._pendingChanges[prop];
-        delete(this._pendingChanges[prop]);
-        if (broadcast) {
-            this.broadcast('child', 'update');
-        }
-    }
-};
-
-Snap.prototype.has = function (prop) {
-    return this._props.hasOwnProperty(prop);
-};
-
-Snap.prototype.set = function (prop, value, immediate) {
-    this._myProps[prop] = value;
-    this._pendingChanges[prop] = value;
-    this.broadcast('child', 'inherit', prop, value);
-    return this;
-};
-
-Snap.prototype.del = function (prop) {
-    this.set(prop, SNAPS.DELETE);
-    return this;
-};
-
-Snap.prototype.setAndUpdate = function (prop, value) {
-    this.set(prop, value);
-    this.update(true);
-    return this;
-};
-
-Snap.prototype.get = function (prop, pending) {
-    if (pending){
-        if (this._pendingChanges.hasOwnProperty(prop)){
-            return this._pendingChanges[prop];
-        }
-    }
-    return this._props[prop];
-};
-
-/**
- * check one or more properties for changes; enact handler when changes happen
- *
- * @param field
- * @param rule
- * @param meta
- */
-Snap.prototype.watch = function (field, handler, meta) {
-    var o = new SNAPS.Observer({target: this, watching: field}, handler, meta);
-    this.observers.push(o);
-    return o;
-};
-
-/**
- * as above -- only complete freedom of observation
- * @param props
- * @param rule
- * @param meta
- */
-Snap.prototype.observe = function (props, handler, meta) {
-    if (!props.target) {
-        props.target = this;
-    }
-    var o = new SNAPS.Observer(props, handler, meta);
-    this.observers.push(o);
-    return o;
-};
-
-Snap.prototype.removeObserver = function (obs) {
-    this.observers = _.reject(this.observers, function (o) {
-        return o.id == obs.id;
-    });
-    obs.deactivate();
-};
-
-/**
- * adds (and creates if necessary) a child snap.
- *
- * @param snap {Snap}
- * @returns {*}
- */
-Snap.prototype.addChild = function (snap) {
-    if (snap) {
-        snap.unparent();
-    } else {
-        snap = this.space.snap();
-    }
-    snap.rel('parent', this);
-    this.rel('child', snap);
-    return snap;
-};
-
-Snap.prototype.children = function () {
-    var out = [];
-    for (var i = 0; i < this.rels.length; ++i) {
-        if (this.rels[i].relType == 'child') {
-            out.push(this.rels[i].toSnap());
-        }
-    }
-    return out;
-};
-
-Snap.prototype.unparent = function () {
-    var parentRels = this.getRels('parent');
-    for (var i = 0; i < parentRels.length; ++i) {
-        var parent = parentRels[i].toSnap();
-        parent.adoptChildren(this);
-        parent.cleanseRels();
-    }
-
-};
-
-Snap.prototype.adoptChildren = function (snap) {
-
-    var childRels = this.getRels(snap.id, 'child');
-    for (var p = 0; p < childRels.length; ++p) {
-        childRels[p].active = false;
-    }
-
-    var snapchildRels = snap.getRels('child');
-
-    for (var s = 0; s < snapchildRels.length; ++s) {
-        this.addChild(snapchildRels[s].toSnap());
-        snapchildRels[s].active = false;
-    }
-    snap.cleanseRels();
-};
-
-Snap.prototype.cleanseRels = function () {
-    this.rels = _.filter(this.rels, function (r) {
-        return r.active;
-    });
-};
-
-Snap.prototype.remove = function () {
+Snap.prototype.destroy = function () {
     this.active = false;
     this.unparent();
     this._myProps = null;
     this._pendingChanges = null;
     this.rels = null;
-};
-
-Snap.prototype.removeRel = function (rel) {
-    this.rels = _.reject(this.rels, function (r) {
-        return r.id == rel.id;
-    });
-    rel.active = false;
 };
 
 Snap.prototype.addOutput = function (handler) {
@@ -950,7 +790,14 @@ Snap.prototype.addOutput = function (handler) {
     this.output.add(handler);
 };
 
+/**
+ * reports on pending changes.
+ *
+ * @param keys {[{String}]} -- optional -- a list of changes to look for
+ * @returns {{Object} || false}
+ */
 Snap.prototype.pending = function (keys) {
+    if (this.simple) return false;
     var found = false;
     if (!keys) {
         keys = _.keys(this._pendingChanges);
@@ -968,15 +815,6 @@ Snap.prototype.pending = function (keys) {
         }
     }
     return found ? out : false;
-};
-
-Snap.prototype.broadcast = function (target, message, prop, value) {
-    for (var i = 0; i < this.rels.length; ++i) {
-        var rel = this.rels[i];
-        if (rel.relType == target) {
-            rel.broadcast(this.id, message, prop, value);
-        }
-    }
 };
 
 Snap.prototype.hasUpdates = function () {
@@ -1032,20 +870,6 @@ Snap.prototype.family = function () {
     return out;
 };
 
-Snap.prototype.blend = function (prop, endValue, time, blend) {
-    debugger;
-    var valueSnap = this.space.snap();
-    valueSnap.set('prop', prop);
-    var startValue = this.has(prop) ? parseFloat(this.get(prop)) || 0 : 0;
-    valueSnap.set('startValue', startValue)
-    .set('endValue', endValue)
-    .set('startTime', this.space.time)
-    .set('endTime', this.space.time + Math.max(parseInt(time), 1))
-    .set('blend', blend);
-    this.rel('blend', valueSnap, {prop: prop});
-    this.blendCount++;
-}
-
 /** ordinarily SNAPS is a class that is only created through a space factory.
  * This backend accessor is created to access Snap only for testing purposes
  *
@@ -1057,42 +881,6 @@ SNAPS.Snap = function (why) {
 };
 
 
-
-Snap.prototype.update = function (broadcast) {
-    if (!this.active) {
-        // shouldn't be possible but just in case
-        return;
-    }
-
-    if (this.blendCount > 0) {
-        this.updateBlends();
-    }
-
-    if (this.hasUpdates()) {
-        for (i = 0; i < this.observers.length; ++i) {
-            this.observers[i].apply();
-        }
-    } else { // do any time based transitions
-        for (i = 0; i < this.observers.length; ++i) {
-            if (this.observers[i].startTime > -1) {
-                this.observers[i].apply();
-            }
-        }
-    }
-
-    _.extend(this._props, this._pendingChanges);
-
-    this.lastChanges = this.output ? this.pending() : false;
-
-    this._pendingChanges = {};
-    if (broadcast) {
-        this.broadcast('child', 'update');
-    }
-
-    SNAPS.cleanObj(this._props);
-    SNAPS.cleanObj(this._myProps);
-
-};
 Snap.prototype.updateBlends = function () {
     var blends = this.getRels('blend');
     var blendValues = {};
@@ -1122,12 +910,19 @@ Snap.prototype.updateBlends = function () {
             progress = time - startTime;
             progress /= dur;
 
+            if (toSnap.has('blend')) {
+                var blendFn = toSnap.get('blend');
+                if (typeof(blendFn) == 'function') {
+                    progress = blendFn(progress);
+                }
+            }
             value = (progress * endValue) + ((1 - progress) * startValue);
         }
 
         if (!blendValues[prop]) {
             blendValues[prop] = [];
         }
+
         blendValues[prop].push({
             value: value,
             progress: progress
@@ -1160,6 +955,365 @@ Snap.prototype.updateBlends = function () {
     }
 };
 
+Snap.prototype.blend = function (prop, endValue, time, blendFn) {
+    this.retireOtherBlends(prop, time);
+    var valueSnap = this.space.snap();
+    valueSnap.set('prop', prop);
+    var startValue = this.has(prop) ? parseFloat(this.get(prop)) || 0 : 0;
+    valueSnap.set('startValue', startValue)
+        .set('endValue', endValue)
+        .set('startTime', this.space.time)
+        .set('endTime', this.space.time + Math.max(parseInt(time), 1))
+        .set('blend', blendFn);
+    this.rel('blend', valueSnap, {prop: prop});
+    this.blendCount++;
+};
+
+Snap.prototype.retireOtherBlends = function (prop, time) {
+    var otherBlends = _.filter(this.getRels('blend'), function (r) {
+        return r.meta.prop == prop;
+    });
+
+    _.each(otherBlends, function (blend) {
+        blend.destroy();
+    })
+
+};
+/**
+ * check one or more properties for changes; enact handler when changes happen
+ *
+ * @param field {[{String}]} a list of properties to observe change on.
+ * @param handler {function} What happens when the observed field(s) change.
+ * @param meta {Object} optional - metadata for the observer.
+ */
+Snap.prototype.watch = function (field, handler, meta) {
+    var o = new SNAPS.Observer({target: this, watching: field}, handler, meta);
+    this.observers.push(o);
+    return o;
+};
+
+/**
+ * as above -- only complete freedom of observation configuration
+ *
+ * @param props {Object} a configuration for the observer
+ * @param handler {function} What happens when the observed field(s) change.
+ * @param meta {Object} optional - metadata for the observer.
+ */
+Snap.prototype.observe = function (props, handler, meta) {
+    if (!props.target) {
+        props.target = this;
+    }
+    var o = new SNAPS.Observer(props, handler, meta);
+    this.observers.push(o);
+    return o;
+};
+
+Snap.prototype.removeObserver = function (obs) {
+    var oid = SNAPS.assert.int(obs, function(){ return obs.id});
+    this.observers = _.reject(this.observers, function (o) {
+        return o.id == oid;
+    });
+    obs.deactivate();
+};
+
+Snap.prototype.updateObservers = function () {
+    var l = this.observers.length;
+    for (i = 0; i < l; ++i) {
+        this.observers[i].apply();
+    }
+};
+
+
+Snap.prototype.merge = function (prop, value, combiner) {
+    if (!this.has(prop)) {
+        return this.set(prop, value);
+    }
+
+    var oldValue = this.get(prop);
+    if (combiner) {
+        value = combiner(value, oldValue);
+    } else if (_.isArray(prop)) {
+        if (_.isArray(oldValue)) {
+            value = (oldValue.concat(value));
+        }
+    } else if (_.isObject(value)) {
+        if (_.isObject(oldValue)) {
+            _.defaults(value, oldValue);
+        }
+    } // otherwise, set
+
+    this.set(prop, value);
+};
+
+/**
+ * applies an update for a single property; only broacasts if that property has an update.
+ *
+ * @param prop
+ * @param broadcast
+ */
+
+Snap.prototype.updateProp = function (prop, broadcast) {
+    if (this._pendingChanges.hasOwnProperty(prop)) {
+        this._props[prop] = this._pendingChanges[prop];
+        delete(this._pendingChanges[prop]);
+        if (broadcast) {
+            this.broadcast('child', 'update');
+        }
+    }
+};
+
+Snap.prototype.has = function (prop) {
+    return this._props.hasOwnProperty(prop);
+};
+
+Snap.prototype.set = function (prop, value, immediate) {
+    if (this.simple){
+        this._props[prop] = value;
+        return;
+    }
+    this._myProps[prop] = value;
+    this._pendingChanges[prop] = value;
+    this.broadcast('child', 'inherit', prop, value);
+    return this;
+};
+
+Snap.prototype.del = function (prop) {
+    this.set(prop, SNAPS.DELETE);
+    return this;
+};
+
+Snap.prototype.setAndUpdate = function (prop, value) {
+    this.set(prop, value);
+    this.update(true);
+    return this;
+};
+
+Snap.prototype.get = function (prop, pending) {
+    if (pending) {
+        if (this._pendingChanges.hasOwnProperty(prop)) {
+            return this._pendingChanges[prop];
+        }
+    }
+    return this._props[prop];
+};
+
+Snap.prototype.getRels = function (relType) {
+    if (this.simple){
+        throw 'Cannot add relationships to simple snaps';
+    }
+    return _.reduce(this.rels, function (list, rel) {
+        if (rel.relType == relType) {
+            list.push(rel);
+        }
+        return list;
+    }, []);
+};
+
+Snap.prototype.rel = function (relType, toId, meta) {
+    if (this.simple){
+        throw 'Cannot add relationships to simple snaps';
+    }
+    var rel = new SNAPS.Rel({
+        space: this.space,
+        relType: relType,
+        from: this,
+        to: toId,
+        order: this.getRels(relType).length
+    }, meta);
+    this.rels.push(rel);
+    return rel;
+};
+
+/**
+ * gets a subset of relationships;
+ * can filter by relType (if string),
+ * toId (if number), or functionally.
+ * Any number of filters can be passed; if none are, all rels are returned;
+ * @returns {Array}
+ */
+Snap.prototype.getRels = function () {
+    if (this.simple){
+        return [];
+    }
+    if (!arguments.length) {
+        return this.rels.slice();
+    }
+
+    var i;
+    var out;
+    var rels = this.rels;
+
+    for (var a = 0; a < arguments.length; ++a) {
+        out = [];
+        var filter = arguments[a];
+        if (_.isString(filter)) {
+            for (i = 0; i < rels.length; ++i) {
+                if (rels[i].relType == filter) {
+                    out.push(rels[i]);
+                }
+            }
+        } else if (_.isNumber(filter)) {
+            for (i = 0; i < rels.length; ++i) {
+                if (rels[i].toId == filter) {
+                    out.push(rels[i]);
+                }
+            }
+        } else if (_.isFunction(filter)) {
+            out = _.filter(rels, filter);
+        }
+        rels = out;
+    }
+
+    return out;
+};
+
+/**
+ * adds (and creates if necessary) a child snap.
+ *
+ * @param snap {Snap}
+ * @returns {*}
+ */
+Snap.prototype.addChild = function (snap) {
+    if (this.simple){
+        throw 'Cannot add child to simple snap';
+    }
+    if (snap) {
+        snap.unparent();
+    } else {
+        snap = this.space.snap();
+    }
+    snap.rel('parent', this);
+    this.rel('child', snap);
+    return snap;
+};
+
+Snap.prototype.children = function () {
+    if (this.simple){
+        return [];
+    }
+    var out = [];
+    for (var i = 0; i < this.rels.length; ++i) {
+        if (this.rels[i].relType == 'child') {
+            out.push(this.rels[i].toSnap());
+        }
+    }
+    return out;
+};
+
+Snap.prototype.unparent = function () {
+    if (this.simple){
+        return;
+    }
+    var parentRels = this.getRels('parent');
+    for (var i = 0; i < parentRels.length; ++i) {
+        var parent = parentRels[i].toSnap();
+        parent.adoptChildren(this);
+        parent.cleanseRels();
+    }
+
+};
+
+Snap.prototype.adoptChildren = function (snap) {
+    if (this.simple){
+        return;
+    }
+
+    var childRels = this.getRels(snap.id, 'child');
+    for (var p = 0; p < childRels.length; ++p) {
+        childRels[p].active = false;
+    }
+
+    var snapchildRels = snap.getRels('child');
+
+    for (var s = 0; s < snapchildRels.length; ++s) {
+        this.addChild(snapchildRels[s].toSnap());
+        snapchildRels[s].active = false;
+    }
+    snap.cleanseRels();
+};
+
+Snap.prototype.cleanseRels = function () {
+    if (this.simple){
+        return;
+    }
+    this.rels = _.filter(this.rels, function (r) {
+        return r.active;
+    });
+};
+
+Snap.prototype.removeRel = function (rel) {
+    if (this.simple){
+        return;
+    }
+    this.rels = _.reject(this.rels, function (r) {
+        return r.id == rel.id;
+    });
+    rel.active = false;
+};
+
+Snap.prototype.broadcast = function (target, message, prop, value) {
+    if (this.simple){
+        return;
+    }
+    for (var i = 0; i < this.rels.length; ++i) {
+        var rel = this.rels[i];
+        if (rel.relType == target) {
+            rel.broadcast(this.id, message, prop, value);
+        }
+    }
+};
+Snap.prototype.update = function (broadcast) {
+    if (this.updated) {
+        this.updated.dispatch(broadcast);
+    }
+};
+
+Snap.prototype.updateChanges = function () {
+    _.extend(this._props, this._pendingChanges);
+    this.lastChanges = this.output ? this.pending() : false;
+    this._pendingChanges = {};
+};
+
+Snap.prototype.updatePhysics = function () {
+
+    var changes = {};
+
+};
+
+Snap.prototype.broadcastToChildren = function () {
+    this.broadcast('child', 'update');
+};
+
+Snap.prototype.cleanupDeleted = function () {
+    SNAPS.cleanObj(this._props);
+    SNAPS.cleanObj(this._myProps);
+};
+
+Snap.prototype.initUpdated = function () {
+
+    this.updated = new signals.Signal();
+
+    /**
+     * disable unneeded handlers
+     */
+    this.updated.add(function (broadcast) {
+        if (!this.active) {
+            return false;
+        }
+        doBlendsBinding.active = (this.blendCount > 0);
+        //  doUpdatePhysicsBinding.active = (this.physicsCount > 0);
+        doUpdateObserversBinding.active = (this.observers.length);
+        doBroadcastChangesBinding.active = !!broadcast;
+    }.bind(this));
+
+    var doBlendsBinding = this.updated.add(this.updateBlends.bind(this));
+    // var doUpdatePhysicsBinding = this.updated.add(this.updatePhysics.bind(this));
+    var doUpdateObserversBinding = this.updated.add(this.updateObservers.bind(this));
+    var doChangesBinding = this.updated.add(this.updateChanges.bind(this));
+    var doBroadcastChangesBinding = this.updated.add(this.broadcastToChildren.bind(this));
+    var doCleanupBinding = this.updated.add(this.cleanupDeleted.bind(this));
+
+}
 var Space = function () {
     this.id = 1;
     this.snaps = [];

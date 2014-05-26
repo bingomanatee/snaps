@@ -18,7 +18,7 @@ This is handy for instance if you want to have wolf snaps watching sheep snaps.
 
 This is a response to the modelling in Famo.us; Famo.us's modelling is very literal and obfuscated; each
 property is modelled with a custom, dirtified property and this makes state tracking and changing messy and
-difficult to follow.
+difficult to follow. Also testing is nonexistent.
 
 Also fundamental concepts like removing nodes is left out making basic activity very difficult to replicate.
 
@@ -36,10 +36,13 @@ child Snaps that inherit their settings.
 
 ## The Property Setting Cycle
 
+Property setting is buffered in able to synchronize all changes (and broadcast updates to ouptut) only once, after a set
+of operations is completed.
+
 Each Snap has a `get(prop)` and `set(prop, value)` method. However set properties don't immediately register; instead,
 they are kept in a change buffer until one of two things happen:
 
-1. The Snap's 'update(broadcast)` is called and the Snap (and if brodcast is true, its descendents) is loaded with all
+1. The Snap's 'update(broadcast)` is called and the Snap (and if broadcast is true, its children) is loaded with all
 the pending updates
 
 2. the Snap's Space's `update()` method is called and all its Snaps are updated en masse.
@@ -49,9 +52,17 @@ the pending updates
 Snaps may have watchers that observe updates to the Snap. A snap's Observers' handlers are called under one of the following
 conditions whenever its' update method is called:
 
-1. if the Observer has a list of watched properties, and one of them is changed
+1. if the Observer has a one or more watched properties, and one of them is changed
 2. if the Observer has no watched properties it is applied whenever ANY of its properties change
-3. if the Observer has a time window, it is applied every update that the Snap's Space's time is within its time gate.
+
+## Blends/animation
+
+A Snap's properties can be Blended. Blends affect a single property, bringing its numeric property from one value
+to another. This blending is done during the update cycle in accordance to the space's time property.
+
+Multiple blends for the same property combine based on their weighted value allowing for an eased transition between
+contradictory blend directives. `mySnap.blend('height', 200, 50)` will blend the height property from its present
+value (or zero if its not defined) to 200 over 50 milliseconds.
 
 ## Relationships
 
@@ -68,11 +79,10 @@ remote management through pubsub models, web sockets, and other network/service 
 
 ## Compatibility
 
-### Browser
+### BrowserDom
 
-As the interaction with the DOM is fundamentally simple -- setting style properties, ids, name, etc., Snaps should
-be cross browser compatibile to IE8 and all modern browsers. That being said, formal cross browser testing is pending.
-Also, transforms are an IE9 festure so you will have to be consious of this when you use them.
+The BrowserDom class is built on Snaps. It uses distinct snaps for elements, attributes, and data. BrowserDom
+objects are not themselves snaps. (this may change).
 
 ### Other frameworks
 
@@ -80,3 +90,16 @@ Snaps only understands the DOM elements it creates / is passed; it should be int
 framework. It works with require.js, and in fact can be used to manage properties in any JS system (THREE,
 CreateJS, etc.). Like D3, its management system is independent of its rendering engine so it can be used to manage
 any sort of property driven context.
+
+## Used and Grateful
+
+I use the following dependent libraries to drive Snaps.
+
+* **lodash** (loaded seperately) for some operations
+* **check-types** (included) for type checking
+* **Tween.js** (included) for easing functions
+* **signals** (loaded seperately) for events
+* **Grunt** (as a developer dependency) for building and keeping examples up to date
+* **famous-generator** for building examples (and then I gut out the famo.us bits)
+* **Mocha** for testing
+* **WebStorm** (my IDE) for CI and general awesomeness (Grunt launching, test running).

@@ -27,12 +27,19 @@ Snap.prototype.updateBlends = function () {
             progress = time - startTime;
             progress /= dur;
 
+            if (toSnap.has('blend')) {
+                var blendFn = toSnap.get('blend');
+                if (typeof(blendFn) == 'function') {
+                    progress = blendFn(progress);
+                }
+            }
             value = (progress * endValue) + ((1 - progress) * startValue);
         }
 
         if (!blendValues[prop]) {
             blendValues[prop] = [];
         }
+
         blendValues[prop].push({
             value: value,
             progress: progress
@@ -63,4 +70,29 @@ Snap.prototype.updateBlends = function () {
             --this.blendCount;
         }
     }
+};
+
+Snap.prototype.blend = function (prop, endValue, time, blendFn) {
+    this.retireOtherBlends(prop, time);
+    var valueSnap = this.space.snap();
+    valueSnap.set('prop', prop);
+    var startValue = this.has(prop) ? parseFloat(this.get(prop)) || 0 : 0;
+    valueSnap.set('startValue', startValue)
+        .set('endValue', endValue)
+        .set('startTime', this.space.time)
+        .set('endTime', this.space.time + Math.max(parseInt(time), 1))
+        .set('blend', blendFn);
+    this.rel('blend', valueSnap, {prop: prop});
+    this.blendCount++;
+};
+
+Snap.prototype.retireOtherBlends = function (prop, time) {
+    var otherBlends = _.filter(this.getRels('blend'), function (r) {
+        return r.meta.prop == prop;
+    });
+
+    _.each(otherBlends, function (blend) {
+        blend.destroy();
+    })
+
 };

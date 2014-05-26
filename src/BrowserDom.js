@@ -15,6 +15,8 @@ var _styleOverrides = {
     height: true
 };
 
+var _htmlRE = /html|content/i;
+
 /**
  * BrowserDom is an element bridge between a DOM element
  * and properties of a snap instance.
@@ -49,13 +51,17 @@ SNAPS.BrowserDom = function (space, props) {
     }
 
     for (var p in props) {
-        var pp = p.toLowerCase();
-        if (_styleOverrides[pp]) {
-            this.styleSnap.set(pp, props[p]);
-        } else if (_attrs[pp]) {
-            this.attrSnap.set(pp, props[p]);
+        if (_htmlRE.test(p)){
+            this.h(props[p]);
         } else {
-            this.styleSnap.set(pp, props[p]);
+            var pp = p.toLowerCase();
+            if (_styleOverrides[pp]) {
+                this.styleSnap.set(pp, props[p]);
+            } else if (_attrs[pp]) {
+                this.attrSnap.set(pp, props[p]);
+            } else {
+                this.styleSnap.set(pp, props[p]);
+            }
         }
     }
 };
@@ -66,7 +72,7 @@ function _styleSnapChanges(eleSnap) {
     for (var p in eleSnap.lastChanges) {
         var value = eleSnap.lastChanges[p].pending;
 
-        if (value == SNAPS.DELETE) {
+        if (value === SNAPS.DELETE) {
             this.element.style.removeProperty(p);
         } else {
             this.s(p, value);
@@ -78,7 +84,7 @@ function _attrSnapChanges(attrSnap) {
     for (var p in attrSnap.lastChanges) {
         var value = attrSnap.lastChanges[p].pending;
 
-        if (value == SNAPS.DELETE) {
+        if (value === SNAPS.DELETE) {
             this.element.removeAttribute(p);
         } else {
             this.a(p, value);
@@ -92,49 +98,6 @@ SNAPS.BrowserDom.prototype.initOutput = function () {
     this.styleSnap.addOutput(_styleSnapChanges.bind(this));
 };
 
-SNAPS.BrowserDom.prototype.addElement = function (parent) {
-    if (!parent) {
-        parent = document.body;
-    }
-    parent.appendChild(this.element);
-};
-
-SNAPS.BrowserDom.prototype.h = SNAPS.BrowserDom.prototype.html = function (value) {
-
-    if (arguments.length > 0) {
-        this.element.innerHTML = value;
-        return this;
-    } else {
-        return this.element.innerHTML;
-    }
-};
-
-SNAPS.BrowserDom.prototype.a = SNAPS.BrowserDom.prototype.attr = function (prop, value) {
-
-    if (arguments.length > 1) {
-        this.element.setAttribute(prop, value);
-        return this;
-    } else {
-        return this.element.getAttribute(prop);
-    }
-};
-
-SNAPS.BrowserDom.prototype.s = SNAPS.BrowserDom.prototype.style = function (prop, value) {
-
-    if (arguments.length > 1) {
-        this.element.style[prop] = value;
-        return this;
-    } else {
-        return this.element.style[prop];
-    }
-};
-
-SNAPS.removeElement = function () {
-    if (this.element.parent) {
-        this.element.parent.removeChild(this.element);
-    }
-};
-
 SNAPS.BrowserDom.prototype.set = function (prop, value) {
     this.attrSnap.set(prop, value);
 };
@@ -145,4 +108,13 @@ SNAPS.BrowserDom.prototype.merge = function (prop, value, c) {
 
 SNAPS.BrowserDom.prototype.setStyle = function (prop, value) {
     this.styleSnap.set(prop, value);
+};
+
+SNAPS.BrowserDom.prototype.destroy = function (prop, value) {
+    this.removeElement();
+    this.attrSnap.destroy();
+    this.styleSnap.destroy();
+    if (this.dataSnap){
+        this.dataSnap.destroy();
+    }
 };

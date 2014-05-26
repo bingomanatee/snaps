@@ -12,6 +12,7 @@ module.exports = function(grunt) {
                         'src/ease.js',
                         'src/Observer.js',
                         'src/BrowserDom.js',
+                        'src/BrowserDom/*.js',
                         'src/rate.js',
                         'src/Snap.js',
                         'src/Snap/*.js',

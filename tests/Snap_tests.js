@@ -385,7 +385,7 @@ describe('SNAPS', function () {
 
                     //  console.log('before remove: %s', util.inspect(snap.family(), {depth: 8}));
 
-                    c1.remove();
+                    c1.destroy();
 
                     //   console.log('after remove for %s: %s', c1.id, util.inspect(snap.family(), {depth: 8}));
 
@@ -465,31 +465,67 @@ describe('SNAPS', function () {
 
         describe('blends', function () {
 
-            var space;
-            var snap;
+            describe('basic', function(){
 
-            before(function () {
-                space = SNAPS.space();
-                snap = space.snap();
-                snap.setAndUpdate('y', 0);
-                snap.blend('y', 100, 50);
+                var space;
+                var snap;
+
+                before(function () {
+                    space = SNAPS.space();
+                    snap = space.snap();
+                    snap.setAndUpdate('y', 0);
+                    snap.blend('y', 100, 50);
+                });
+
+                it('should set values at times', function () {
+
+                    snap.get('y').should.eql(0);
+                    snap.blendCount.should.eql(1);
+                    space.setTime(25);
+                    space.update();
+                    snap.blendCount.should.eql(1);
+                    snap.get('y').should.eql(50);
+                    space.setTime(50, true).update();
+                    snap.get('y').should.eql(100);
+                    snap.blendCount.should.eql(0);
+                    space.setTime(51, true).update();
+                    snap.blendCount.should.eql(0);
+
+                });
             });
 
-            it('should set values at times', function () {
+            describe('should allow you to "change your mind"', function(){
 
-                snap.get('y').should.eql(0);
-                snap.blendCount.should.eql(1);
-                space.setTime(25);
-                space.update();
-                snap.blendCount.should.eql(1);
-                snap.get('y').should.eql(50);
-                space.setTime(50, true).update();
-                snap.get('y').should.eql(100);
-                snap.blendCount.should.eql(0);
-                space.setTime(51, true).update();
-                snap.blendCount.should.eql(0);
+                var space;
+                var snap;
+                var yValues = [];
 
-            });
+                before(function () {
+                    space = SNAPS.space();
+                    snap = space.snap();
+                    snap.setAndUpdate('y', 0);
+                    snap.blend('y', 200, 100);
+                    for (var i =0; i < 200; i += 10){
+                        yValues.push( {time: space.time, y: snap.get('y')});
+                        space.time += 10;
+                        space.update();
+
+                        switch (space.time){
+                            case 30:
+                                snap.blend('y', 0, 100);
+                                break;
+
+                            case 60:
+                                snap.blend('y', 300, 50);
+                                break;
+                        }
+                    }
+                });
+
+                it('should set values at times', function () {
+                    yValues.should.eql(require('./blend.json'));
+                });
+            })
 
         });
     });
