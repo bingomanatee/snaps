@@ -9,6 +9,7 @@ module.exports = function(grunt) {
                         'src/check-typesjs.js',
                         'src/assert.js',
                         'src/Rel.js',
+                        'src/Link.js',
                         'src/ease.js',
                         'src/Observer.js',
                         'src/BrowserDom.js',

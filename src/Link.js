@@ -9,6 +9,7 @@ var linkId = 0;
  * -- 'set': all ids are equal members; order is irrelevant.
  * -- 'semantic': three ids, id[0] relates to id[2] with id [1] describing relationship
  * -- '1m': the first id relates to all subsequent ids
+ * -- 'graph': the two nodes are linked in a nondeterministic graph. multiple graphs can exist -- set meta to the name of your graph.
  *
  * @param space {SNAPS.Space}
  * @param ids {[{int}]}
@@ -19,7 +20,7 @@ var linkId = 0;
 SNAPS.Link = function (space, ids, linkType, meta) {
     this.id = ++linkId;
     this.active = true;
-    this.space = SNAP.assert.$TYPE(space, 'SPACE');
+    this.space = SNAPS.assert.$TYPE(space, 'SPACE');
     this.linkType = linkType || 'set';
     //@TODO: limit linkType to known types
 
@@ -28,6 +29,7 @@ SNAPS.Link = function (space, ids, linkType, meta) {
 
     this.validate();
     this.link();
+    this.cache = [];
 };
 
 SNAPS.Link.prototype.link = function () {
@@ -37,6 +39,31 @@ SNAPS.Link.prototype.link = function () {
     _.each(this.ids, function (id) {
         space.addLink(id, link)
     });
+};
+
+SNAPS.Link.prototype.get = function (i, id, safe) {
+    if (safe) {
+        try {
+            i = SNAPS.assert.arrayIndex(i, this.ids);
+        } catch (err) {
+            return null;
+        }
+    }
+
+    if (id) {
+        return this.ids[i];
+    }
+
+    if (this.cache[i]) {
+        if (this.cache[i].id != this.ids[i]) {
+            this.cache[i] = this.space.snap(this.ids[i]);
+        }
+    } else {
+        this.cache[i] = this.space.snap(this.ids[i]);
+    }
+
+    return this.cache[i];
+
 };
 
 SNAPS.Link.prototype.$TYPE = 'LINK';
@@ -56,9 +83,22 @@ SNAPS.Link.prototype.validate = function () {
 
     switch (this.linkType) {
         case 'node':
+            if (this.ids.length != 2) {
+                throw 'node link must have two ids';
+            }
             this.ids = this.ids.slice(0, 2);
             if (this.ids[1] == this.ids[0]) {
                 throw 'cannot link node to self';
+            }
+            break;
+
+        case 'graph':
+            if (this.ids.length != 2) {
+                throw 'graph link must have two ids';
+            }
+            this.ids = this.ids.slice(0, 2);
+            if (this.ids[1] == this.ids[0]) {
+                throw 'cannot link graph to self';
             }
             break;
 
@@ -68,7 +108,7 @@ SNAPS.Link.prototype.validate = function () {
 
         case 'semantic':
             this.ids = this.ids.slice(0, 3);
-            if (this.ids.length < 2) {
+            if (this.ids.length < 3) {
                 // add a simple annotative data node
                 var semNode = this.space.snap(true);
                 this.ids.splice(1, 0, semNode.id);
@@ -79,6 +119,94 @@ SNAPS.Link.prototype.validate = function () {
             // ??
             break;
     }
+};
+
+SNAPS.Link.prototype.isValid = function (returnMessage) {
+    if (!this.active) {
+        return returnMessage ? 'inactive' : false;
+    }
+    var badId = _.find(this.ids, check.not.number);
+    if (badId) {
+        return returnMessage ? 'non numeric id' : false;
+    }
+
+    switch (this.linkType) {
+        case 'node':
+            if (this.ids.length < 2) {
+                return returnMessage ? 'too few IDs for node' : false;
+            }
+            if (!this.space.hasSnap(this.ids[1])) {
+                return returnMessage ? 'bad id 1' : false;
+            }
+            if (!this.space.hasSnap(this.ids[0])) {
+                return returnMessage ? 'bad id 0' : false;
+            }
+            break;
+
+        case 'graph':
+            if (this.ids.length < 2) {
+                return returnMessage ? 'too few IDs for graph' : false;
+            }
+            if (!this.space.hasSnap(this.ids[1])) {
+                return returnMessage ? 'bad id 1' : false;
+            }
+            if (!this.space.hasSnap(this.ids[0])) {
+                return returnMessage ? 'bad id 0' : false;
+            }
+            break;
+
+        case 'set':
+            badId = _.reduce(this.ids, function (badId, id) {
+                if (badId != -1) {
+                    return badId;
+                }
+                if (!this.space.hasSnap(id)) {
+                    badId = id;
+                }
+                return badId;
+            }, -1, this);
+
+            if (badId != -1) {
+                return returnMessage ? 'bad id ' + badId : false;
+            }
+            break;
+
+        case 'semantic':
+            if (this.ids.length < 3) {
+                return returnMessage ? 'must have 3 snaps for semantic link' : false;
+            }
+            if (!this.space.hasSnap(this.ids[2])) {
+                return returnMessage ? 'bad id 1' : false;
+            }
+            if (!this.space.hasSnap(this.ids[1])) {
+                return returnMessage ? 'bad id 1' : false;
+            }
+            if (!this.space.snap(this.ids[1]).simple) {
+                return returnMessage ? 'snap 1 must be simple' : false;
+            }
+            if (!this.space.hasSnap(this.ids[0])) {
+                return returnMessage ? 'bad id 0' : false;
+            }
+            break;
+
+        case '1m':
+            badId = _reduce(this.ids, function (badId, id) {
+                if (badId != -1) {
+                    return badId;
+                }
+                if (!this.space.hasSnap(id)) {
+                    badId = id;
+                }
+                return badId;
+            }, -1, this);
+
+            if (badId != -1) {
+                return returnMessage ? 'bad id ' + badId : false;
+            }
+            break;
+    }
+
+    return true;
 };
 
 SNAPS.Link.prototype.toJSON = function () {
@@ -103,13 +231,13 @@ SNAPS.Link.prototype.grow = function (snap) {
     return snap;
 };
 
-Snaps.Link.prototype.removeSnap = function(snap){
+SNAPS.Link.prototype.removeSnap = function (snap) {
 
-    if (typeof snap == 'object'){
+    if (typeof snap == 'object') {
         snap = SNAPS.assert.$TYPE(snap, 'SNAP').id;
     }
 
-    if (!_.contains(this.ids, snap)){
+    if (!_.contains(this.ids, snap)) {
         return;
     }
 
@@ -126,8 +254,8 @@ Snaps.Link.prototype.removeSnap = function(snap){
             break;
 
         case '1m':
-            if (this.ids[0] == snap){
-               return this.destroy();
+            if (this.ids[0] == snap) {
+                return this.destroy();
             }
             break;
     }

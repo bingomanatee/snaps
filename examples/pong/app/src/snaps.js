@@ -40,7 +40,7 @@ else if(typeof define === 'function' && define.amd) {
  * If the type checking does NOT pass and the last argument is NOT a function an error is thrown.
  * if message is set, it's set to the error's message value; otherwise an error defined by the check-types API is thrown.
  *
- * Alternatively, the SNAPS.assert.or method always returns a value -- either the input (if it is valid) or the third argument (if it is not). 
+ * Alternatively, the SNAPS.assert.or method always returns a value -- either the input (if it is valid) or the third argument (if it is not).
  *
  */
 
@@ -117,7 +117,7 @@ SNAPS.assert = {
 
     or: function (typeName, item, alt) {
 
-        switch(typeName){
+        switch (typeName) {
             case 'number':
                 return check.number(item) ? item : alt;
                 break;
@@ -143,6 +143,22 @@ SNAPS.assert = {
             default:
                 throw new Error('cannot or type ' + typeName);
         }
+    },
+
+    arrayIndex: function (item, array, message) {
+        if (typeof array == 'string') {
+            message = array;
+            array = null;
+        }
+        check.verify.intNumber(item, message);
+
+        if (item < 0) {
+            throw message || 'array index must be >= 0';
+        }
+        if (array && (item >= array.length)) {
+            throw message || 'index not in array';
+        }
+        return item;
     },
 
     string: function (item, message) {
@@ -263,7 +279,7 @@ SNAPS.assert = {
 
                 if (min != null) {
                     if (item.length < min) {
-                        if (response){
+                        if (response) {
                             return response('too short');
                         }
                         throw new Error(message || 'must be at least ' + min);
@@ -272,7 +288,7 @@ SNAPS.assert = {
 
                 if (max != null) {
                     if (item.length > max) {
-                        if (response){
+                        if (response) {
                             return response('too long');
                         }
                         throw new Error(message || 'must be no greater than ' + min);
@@ -285,7 +301,7 @@ SNAPS.assert = {
 
                 if (min != null) {
                     if (item < min) {
-                        if (response){
+                        if (response) {
                             return response('too short');
                         }
                         throw new Error(message || 'must be at least ' + min);
@@ -294,7 +310,7 @@ SNAPS.assert = {
 
                 if (max != null) {
                     if (item > max) {
-                        if (response){
+                        if (response) {
                             return response('too long');
                         }
                         throw new Error(message || 'must be no greater than ' + min);
@@ -368,6 +384,270 @@ SNAPS.Rel.prototype.toJSON = function(){
 SNAPS.Rel.prototype.destroy = function(){
     this.active = false;
     this.fromSnap().removeRel(this);
+};
+var linkId = 0;
+/**
+ *
+ * Link (Relationship) collects / connects two or more snaps.
+ * It can be used to map one to many snaps, do parent/child relationships, etc.
+ *
+ * current known types include
+ * -- 'node' : first id is parent, second id is child. The option exists for "multiparent" children.
+ * -- 'set': all ids are equal members; order is irrelevant.
+ * -- 'semantic': three ids, id[0] relates to id[2] with id [1] describing relationship
+ * -- '1m': the first id relates to all subsequent ids
+ * -- 'graph': the two nodes are linked in a nondeterministic graph. multiple graphs can exist -- set meta to the name of your graph.
+ *
+ * @param space {SNAPS.Space}
+ * @param ids {[{int}]}
+ * @param linkType {String} see above
+ * @param meta {variant} any kind of annotation -- optional.
+ * @constructor
+ */
+SNAPS.Link = function (space, ids, linkType, meta) {
+    this.id = ++linkId;
+    this.active = true;
+    this.space = SNAPS.assert.$TYPE(space, 'SPACE');
+    this.linkType = linkType || 'set';
+    //@TODO: limit linkType to known types
+
+    this.ids = ids ? SNAPS.assert.array(ids) : [];
+    this.meta = meta;
+
+    this.validate();
+    this.link();
+    this.cache = [];
+};
+
+SNAPS.Link.prototype.link = function () {
+    var link = this;
+    var space = this.space;
+
+    _.each(this.ids, function (id) {
+        space.addLink(id, link)
+    });
+};
+
+SNAPS.Link.prototype.get = function (i, id, safe) {
+    if (safe) {
+        try {
+            i = SNAPS.assert.arrayIndex(i, this.ids);
+        } catch (err) {
+            return null;
+        }
+    }
+
+    if (id) {
+        return this.ids[i];
+    }
+
+    if (this.cache[i]) {
+        if (this.cache[i].id != this.ids[i]) {
+            this.cache[i] = this.space.snap(this.ids[i]);
+        }
+    } else {
+        this.cache[i] = this.space.snap(this.ids[i]);
+    }
+
+    return this.cache[i];
+
+};
+
+SNAPS.Link.prototype.$TYPE = 'LINK';
+
+SNAPS.Link.prototype.validate = function () {
+    this.ids = _.map(this.ids, function (id) {
+        if (typeof id == 'object') {
+            if (id.$TYPE == 'SNAP') {
+                return id.id
+            } else {
+                throw 'All ids must be numbers or Snaps';
+            }
+        } else {
+            return id;
+        }
+    });
+
+    switch (this.linkType) {
+        case 'node':
+            if (this.ids.length != 2) {
+                throw 'node link must have two ids';
+            }
+            this.ids = this.ids.slice(0, 2);
+            if (this.ids[1] == this.ids[0]) {
+                throw 'cannot link node to self';
+            }
+            break;
+
+        case 'graph':
+            if (this.ids.length != 2) {
+                throw 'graph link must have two ids';
+            }
+            this.ids = this.ids.slice(0, 2);
+            if (this.ids[1] == this.ids[0]) {
+                throw 'cannot link graph to self';
+            }
+            break;
+
+        case 'set':
+            this.ids = _.uniq(this.ids);
+            break;
+
+        case 'semantic':
+            this.ids = this.ids.slice(0, 3);
+            if (this.ids.length < 3) {
+                // add a simple annotative data node
+                var semNode = this.space.snap(true);
+                this.ids.splice(1, 0, semNode.id);
+            }
+            break;
+
+        case '1m':
+            // ??
+            break;
+    }
+};
+
+SNAPS.Link.prototype.isValid = function (returnMessage) {
+    if (!this.active) {
+        return returnMessage ? 'inactive' : false;
+    }
+    var badId = _.find(this.ids, check.not.number);
+    if (badId) {
+        return returnMessage ? 'non numeric id' : false;
+    }
+
+    switch (this.linkType) {
+        case 'node':
+            if (this.ids.length < 2) {
+                return returnMessage ? 'too few IDs for node' : false;
+            }
+            if (!this.space.hasSnap(this.ids[1])) {
+                return returnMessage ? 'bad id 1' : false;
+            }
+            if (!this.space.hasSnap(this.ids[0])) {
+                return returnMessage ? 'bad id 0' : false;
+            }
+            break;
+
+        case 'graph':
+            if (this.ids.length < 2) {
+                return returnMessage ? 'too few IDs for graph' : false;
+            }
+            if (!this.space.hasSnap(this.ids[1])) {
+                return returnMessage ? 'bad id 1' : false;
+            }
+            if (!this.space.hasSnap(this.ids[0])) {
+                return returnMessage ? 'bad id 0' : false;
+            }
+            break;
+
+        case 'set':
+            badId = _.reduce(this.ids, function (badId, id) {
+                if (badId != -1) {
+                    return badId;
+                }
+                if (!this.space.hasSnap(id)) {
+                    badId = id;
+                }
+                return badId;
+            }, -1, this);
+
+            if (badId != -1) {
+                return returnMessage ? 'bad id ' + badId : false;
+            }
+            break;
+
+        case 'semantic':
+            if (this.ids.length < 3) {
+                return returnMessage ? 'must have 3 snaps for semantic link' : false;
+            }
+            if (!this.space.hasSnap(this.ids[2])) {
+                return returnMessage ? 'bad id 1' : false;
+            }
+            if (!this.space.hasSnap(this.ids[1])) {
+                return returnMessage ? 'bad id 1' : false;
+            }
+            if (!this.space.snap(this.ids[1]).simple) {
+                return returnMessage ? 'snap 1 must be simple' : false;
+            }
+            if (!this.space.hasSnap(this.ids[0])) {
+                return returnMessage ? 'bad id 0' : false;
+            }
+            break;
+
+        case '1m':
+            badId = _reduce(this.ids, function (badId, id) {
+                if (badId != -1) {
+                    return badId;
+                }
+                if (!this.space.hasSnap(id)) {
+                    badId = id;
+                }
+                return badId;
+            }, -1, this);
+
+            if (badId != -1) {
+                return returnMessage ? 'bad id ' + badId : false;
+            }
+            break;
+    }
+
+    return true;
+};
+
+SNAPS.Link.prototype.toJSON = function () {
+    return {ids: this.ids.slice()}
+};
+
+SNAPS.Link.prototype.destroy = function () {
+    this.active = false;
+    this.space.removeLink(this);
+};
+
+/**
+ * adds a new member to the collection
+ * @returns {*}
+ */
+SNAPS.Link.prototype.grow = function (snap) {
+    if (!snap && snap.$TYPE == 'SNAP') {
+        var args = _.toArray(arguments);
+        snap = this.space.snap.apply(this.space, args);
+    }
+    this.ids.push(snap.id);
+    return snap;
+};
+
+SNAPS.Link.prototype.removeSnap = function (snap) {
+
+    if (typeof snap == 'object') {
+        snap = SNAPS.assert.$TYPE(snap, 'SNAP').id;
+    }
+
+    if (!_.contains(this.ids, snap)) {
+        return;
+    }
+
+    switch (this.linkType) {
+        case 'node':
+            return this.destroy();
+            break;
+
+        case 'set':
+            break;
+
+        case 'semantic':
+            return this.destroy();
+            break;
+
+        case '1m':
+            if (this.ids[0] == snap) {
+                return this.destroy();
+            }
+            break;
+    }
+    this.ids = _.difference(this.ids, [snap]);
+    return this;
 };
 /*!
 * @license TweenJS
@@ -1000,7 +1280,9 @@ Snap.prototype.retireOtherBlends = function (prop, time) {
 
 };
 Snap.prototype.removeLink = function (link) {
-    if (!this.links.length) return;
+    if (!this.links.length) {
+        return;
+    }
     var linkId = isNaN(link) ? link.id : link;
 
     this.links = _.reject(this.links, function (link) {
@@ -1016,6 +1298,105 @@ Snap.prototype.addLink = function (link) {
     }
 };
 
+Snap.prototype.link = function () {
+    var args = _.toArray(arguments);
+    var linkType;
+    if (typeof(args[0]) == 'string') {
+        linkType = args.shift();
+    } else {
+        linkType = 'node';
+    }
+    args.unshift(this);
+    return new SNAPS.Link(this.space, args, linkType);
+};
+
+Snap.prototype.getLinks = function (linkType, filter) {
+    return _.filter(this.links, function (l) {
+        return (l.linkType == linkType) ? ((filter) ? filter(l) : true) : false;
+    });
+};
+
+Snap.prototype.nodeChildren = function (ids) {
+    var myId = this.id;
+    var nodes = this.getLinks('node', function (n) {
+        return n.ids[0] == myId;
+    });
+
+    return _.map(nodes, function (n) {
+        return n.get(1, ids);
+    });
+};
+
+Snap.prototype.hasNodeChildren = function () {
+    for (var i = 0; i < this.links.length; ++i) {
+        var link = this.links[i];
+        if (link.linkType == 'node' && link.ids[0] == this.id) {
+            return true;
+        }
+    }
+
+    return false;
+};
+
+Snap.prototype.nodeSpawn = function (ids) {
+    var children = this.nodeChildren();
+
+    var leafs = [];
+    var pp = [];
+    var parents = [];
+
+    while (children.length || parents.length) {
+        for (var i = 0; i < children.length; ++i) {
+            var child = children[i];
+            if (child.hasNodeChildren()) {
+                parents.push(child);
+            } else {
+                leafs.push(child);
+            }
+        }
+        children = [];
+
+        for (var p = 0; p < parents.length; ++p) {
+            var parent = parents[p];
+            children = children.concat(parent.nodeChildren());
+            pp.push(parent);
+        }
+        parents = [];
+    }
+
+    return pp.concat(leafs);
+
+};
+
+Snap.prototype.nodeFamily = function () {
+
+    var out = {
+        id: this.id
+    };
+
+    var childLinks = this.getLinks('node', function (link) {
+        return link.ids[0] == this.id;
+    }.bind(this));
+
+    for (var l = 0; l < childLinks.length; ++l) {
+        var link = childLinks[l];
+        var nodeChild = link.get(1);
+        var grandChildren = nodeChild.nodeFamily();
+        if (link.meta && _.isString(link.meta)) {
+            if (!out[link.meta]) {
+                out[link.meta] = [];
+            }
+            out[link.meta].push(grandChildren);
+        } else {
+            if (!out.children) {
+                out.children = [];
+            }
+            out.children.push(grandChildren);
+        }
+    }
+
+    return out;
+};
 /**
  * check one or more properties for changes; enact handler when changes happen
  *
@@ -1433,6 +1814,23 @@ Space.prototype.snap = function (input) {
     }
     return snap;
 };
+
+
+Space.prototype.hasSnap = function (snap, onlyIfActive) {
+    if (typeof snap == 'object'){
+        snap = SNAPS.assert.$TYPE(snap, 'SNAP').id
+    };
+
+    if(snap >= this.snaps.length){
+        return false;
+    }
+    if (onlyIfActive) {
+        return this.snaps[snap].active;
+    } else {
+        return true;
+    }
+};
+
 
 Space.prototype.bd = function (props, ele, parent) {
     props = SNAPS.assert.or('object', props, {});

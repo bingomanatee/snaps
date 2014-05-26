@@ -64,6 +64,23 @@ Space.prototype.snap = function (input) {
     return snap;
 };
 
+
+Space.prototype.hasSnap = function (snap, onlyIfActive) {
+    if (typeof snap == 'object'){
+        snap = SNAPS.assert.$TYPE(snap, 'SNAP').id
+    };
+
+    if(snap >= this.snaps.length){
+        return false;
+    }
+    if (onlyIfActive) {
+        return this.snaps[snap].active;
+    } else {
+        return true;
+    }
+};
+
+
 Space.prototype.bd = function (props, ele, parent) {
     props = SNAPS.assert.or('object', props, {});
     if (ele) {

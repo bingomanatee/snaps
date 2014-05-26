@@ -7,7 +7,7 @@
  * If the type checking does NOT pass and the last argument is NOT a function an error is thrown.
  * if message is set, it's set to the error's message value; otherwise an error defined by the check-types API is thrown.
  *
- * Alternatively, the SNAPS.assert.or method always returns a value -- either the input (if it is valid) or the third argument (if it is not). 
+ * Alternatively, the SNAPS.assert.or method always returns a value -- either the input (if it is valid) or the third argument (if it is not).
  *
  */
 
@@ -84,7 +84,7 @@ SNAPS.assert = {
 
     or: function (typeName, item, alt) {
 
-        switch(typeName){
+        switch (typeName) {
             case 'number':
                 return check.number(item) ? item : alt;
                 break;
@@ -110,6 +110,22 @@ SNAPS.assert = {
             default:
                 throw new Error('cannot or type ' + typeName);
         }
+    },
+
+    arrayIndex: function (item, array, message) {
+        if (typeof array == 'string') {
+            message = array;
+            array = null;
+        }
+        check.verify.intNumber(item, message);
+
+        if (item < 0) {
+            throw message || 'array index must be >= 0';
+        }
+        if (array && (item >= array.length)) {
+            throw message || 'index not in array';
+        }
+        return item;
     },
 
     string: function (item, message) {
@@ -230,7 +246,7 @@ SNAPS.assert = {
 
                 if (min != null) {
                     if (item.length < min) {
-                        if (response){
+                        if (response) {
                             return response('too short');
                         }
                         throw new Error(message || 'must be at least ' + min);
@@ -239,7 +255,7 @@ SNAPS.assert = {
 
                 if (max != null) {
                     if (item.length > max) {
-                        if (response){
+                        if (response) {
                             return response('too long');
                         }
                         throw new Error(message || 'must be no greater than ' + min);
@@ -252,7 +268,7 @@ SNAPS.assert = {
 
                 if (min != null) {
                     if (item < min) {
-                        if (response){
+                        if (response) {
                             return response('too short');
                         }
                         throw new Error(message || 'must be at least ' + min);
@@ -261,7 +277,7 @@ SNAPS.assert = {
 
                 if (max != null) {
                     if (item > max) {
-                        if (response){
+                        if (response) {
                             return response('too long');
                         }
                         throw new Error(message || 'must be no greater than ' + min);
