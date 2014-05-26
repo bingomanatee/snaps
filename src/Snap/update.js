@@ -4,16 +4,33 @@ Snap.prototype.update = function (broadcast) {
     }
 };
 
+var changeSet = 0;
 Snap.prototype.updateChanges = function () {
+    if (this.simple){
+        return;
+    }
     _.extend(this._props, this._pendingChanges);
-    this.lastChanges = this.output ? this.pending() : false;
+    var pending = this.pending();
+    if (pending){
+        ++changeSet;
+        for (var p in pending){
+            if (this._changeSignals.hasOwnProperty(p)){
+                this._changeSignals[p].dispatch(
+                    pending[p].pending,
+                    pending[p].old,
+                    pending[p].new,
+                    changeSet,
+                    pending);
+            }
+        }
+    }
+
+    this.lastChanges = pending;
     this._pendingChanges = {};
 };
 
 Snap.prototype.updatePhysics = function () {
-
     var changes = {};
-
 };
 
 Snap.prototype.broadcastToChildren = function () {

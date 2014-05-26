@@ -9,10 +9,16 @@ organization of elements.
 The idea is that when you change a property, that change is propogated down through the chain until a property with an
 override is found. This effects inheritance modelling
 
-## Generic relationship model
+## Semantic relationship model
 
-Snaps can have multiple, deep tree relationship.
-This is handy for instance if you want to have wolf snaps watching sheep snaps.
+Snaps can have multiple, deep relationships. Any sort of relationships can be created --
+
+* node (parent/child)
+* one to many (one id --> id collections)
+* many to many (id collections)
+* semantic (id --> annotation --> id)
+
+This is handy for instance if you want to have wolf snaps watching sheep snaps or create collections of snaps.
 
 # Why SNAPS?
 
@@ -46,6 +52,8 @@ they are kept in a change buffer until one of two things happen:
 the pending updates
 
 2. the Snap's Space's `update()` method is called and all its Snaps are updated en masse.
+
+Thus, snaps is an "eventual consistency" model in which transactions are cached at the snap level and locked in in parallel.
 
 ## Observers
 

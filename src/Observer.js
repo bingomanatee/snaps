@@ -49,26 +49,11 @@ SNAPS.Observer = function (props, handler, meta) {
 
     this.active = true;
 };
-/*
-
-SNAPS.Observer.prototype.watchTime = function (startDelay, duration) {
-    if (startDelay > 0) {
-        this.meta.startTime = this.space.time + startDelay;
-        if (duration > 0) {
-            this.meta.endTime = this.space.time + startDelay + duration;
-        }
-    } else if (duration > 0) {
-        this.meta.endTime = this.space.time + duration;
-    }
-};
-*/
 
 SNAPS.Observer.prototype.apply = function (target) {
     target = target || this.target;
 
-    if (this.startTime > -1) {
-        this.applyTime(target);
-    } else if (this.watching.length) {
+    if (this.watching.length) {
         var changed = (target).pending(this.watching);
         if (changed) {
             this.handler.call(target, changed)

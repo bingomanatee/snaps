@@ -439,26 +439,11 @@ SNAPS.Observer = function (props, handler, meta) {
 
     this.active = true;
 };
-/*
-
-SNAPS.Observer.prototype.watchTime = function (startDelay, duration) {
-    if (startDelay > 0) {
-        this.meta.startTime = this.space.time + startDelay;
-        if (duration > 0) {
-            this.meta.endTime = this.space.time + startDelay + duration;
-        }
-    } else if (duration > 0) {
-        this.meta.endTime = this.space.time + duration;
-    }
-};
-*/
 
 SNAPS.Observer.prototype.apply = function (target) {
     target = target || this.target;
 
-    if (this.startTime > -1) {
-        this.applyTime(target);
-    } else if (this.watching.length) {
+    if (this.watching.length) {
         var changed = (target).pending(this.watching);
         if (changed) {
             this.handler.call(target, changed)
@@ -774,6 +759,8 @@ function Snap(space, id, props) {
      */
     this.observers = [];
 
+    this._changeSignals = {};
+
     /**
      * rels (relationships) are collections of pointers to other Snaps.
      * Some of these include classic 'parent', 'child' relationships --
@@ -782,6 +769,12 @@ function Snap(space, id, props) {
      * @type {Array}
      */
     this.rels = [];
+
+    /**
+     * collection of links that include this snap.
+     * @type {Array}
+     */
+    this.links = [];
 
     this.active = true;
 
@@ -803,6 +796,9 @@ Snap.prototype.destroy = function () {
     this.unparent();
     this._myProps = null;
     this._pendingChanges = null;
+    _.each(this.links, function(l){
+        l.removeSnap(this, true);
+    }, this);
     this.rels = null;
 };
 
@@ -1003,6 +999,23 @@ Snap.prototype.retireOtherBlends = function (prop, time) {
     })
 
 };
+Snap.prototype.removeLink = function (link) {
+    if (!this.links.length) return;
+    var linkId = isNaN(link) ? link.id : link;
+
+    this.links = _.reject(this.links, function (link) {
+        return link.id == linkId;
+    })
+};
+
+Snap.prototype.addLink = function (link) {
+    if (!_.find(this.links, function (l) {
+        return l.id == link.id
+    })) {
+        this.links.push(link);
+    }
+};
+
 /**
  * check one or more properties for changes; enact handler when changes happen
  *
@@ -1292,16 +1305,33 @@ Snap.prototype.update = function (broadcast) {
     }
 };
 
+var changeSet = 0;
 Snap.prototype.updateChanges = function () {
+    if (this.simple){
+        return;
+    }
     _.extend(this._props, this._pendingChanges);
-    this.lastChanges = this.output ? this.pending() : false;
+    var pending = this.pending();
+    if (pending){
+        ++changeSet;
+        for (var p in pending){
+            if (this._changeSignals.hasOwnProperty(p)){
+                this._changeSignals[p].dispatch(
+                    pending[p].pending,
+                    pending[p].old,
+                    pending[p].new,
+                    changeSet,
+                    pending);
+            }
+        }
+    }
+
+    this.lastChanges = pending;
     this._pendingChanges = {};
 };
 
 Snap.prototype.updatePhysics = function () {
-
     var changes = {};
-
 };
 
 Snap.prototype.broadcastToChildren = function () {
@@ -1358,6 +1388,19 @@ Space.prototype.resetTime = function () {
 Space.prototype.setTime = function (n) {
     this.time = n;
     return this;
+};
+
+Space.prototype.addLink = function(id, link){
+    if (this.snaps[id] && (!this.snaps[id].simple)){
+        this.snaps[id].addLink(link);
+    }
+};
+Space.prototype.removeLink = function(link){
+    _.each(link.ids, function(id){
+        if (this.snaps[id] && (!this.snaps[id].simple)){
+            this.snaps[id].removeLink(link);
+        }
+    }, this);
 };
 
 /**

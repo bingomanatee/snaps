@@ -49,6 +49,8 @@ function Snap(space, id, props) {
      */
     this.observers = [];
 
+    this._changeSignals = {};
+
     /**
      * rels (relationships) are collections of pointers to other Snaps.
      * Some of these include classic 'parent', 'child' relationships --
@@ -57,6 +59,12 @@ function Snap(space, id, props) {
      * @type {Array}
      */
     this.rels = [];
+
+    /**
+     * collection of links that include this snap.
+     * @type {Array}
+     */
+    this.links = [];
 
     this.active = true;
 
@@ -78,6 +86,9 @@ Snap.prototype.destroy = function () {
     this.unparent();
     this._myProps = null;
     this._pendingChanges = null;
+    _.each(this.links, function(l){
+        l.removeSnap(this, true);
+    }, this);
     this.rels = null;
 };
 

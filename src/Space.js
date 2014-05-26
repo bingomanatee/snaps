@@ -20,6 +20,19 @@ Space.prototype.setTime = function (n) {
     return this;
 };
 
+Space.prototype.addLink = function(id, link){
+    if (this.snaps[id] && (!this.snaps[id].simple)){
+        this.snaps[id].addLink(link);
+    }
+};
+Space.prototype.removeLink = function(link){
+    _.each(link.ids, function(id){
+        if (this.snaps[id] && (!this.snaps[id].simple)){
+            this.snaps[id].removeLink(link);
+        }
+    }, this);
+};
+
 /**
  * this is a heavily overloaded function
  *
