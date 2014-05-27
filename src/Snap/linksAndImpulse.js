@@ -30,8 +30,9 @@ Snap.prototype.link = function () {
 };
 
 Snap.prototype.getLinks = function (linkType, filter) {
+    var self = this;
     return _.filter(this.links, function (l) {
-        return (l.linkType == linkType) ? ((filter) ? filter(l) : true) : false;
+        return (l.linkType == linkType) ? ((filter) ? filter(l, self) : true) : false;
     });
 };
 
@@ -45,9 +46,13 @@ Snap.prototype.nodeChildNodes = function () {
 Snap.prototype.nodeChildren = function (ids) {
     var nodes = this.nodeChildNodes();
 
-    return _.map(nodes, function (n) {
-        return n.get(1, ids);
-    });
+    return _.reduce(nodes, function (o, n) {
+        var s = n.get(1, ids);
+        if (s.active && !s.simple) {
+            o.push(s);
+        }
+        return o;
+    }, []);
 };
 
 Snap.prototype.hasNodeChildren = function () {
@@ -119,4 +124,59 @@ Snap.prototype.nodeFamily = function () {
     }
 
     return out;
+};
+
+Snap.prototype.impulse = function (message, linkType, props, meta) {
+    SNAPS.impulse(this, message, linkType, props, meta);
+};
+
+Snap.prototype.broadcastUpdate = function () {
+    var children = this.nodeChildren();
+    for (var c = 0; c < children.length; ++c) {
+        children[c].update(true);
+    }
+};
+
+/**
+ * prepare this snap to be destroyed;
+ * links all the children of this snap to its parent(s) if any
+ * and destroys its node links.
+ */
+Snap.prototype.unparent = function () {
+    if (this.simple) {
+        return;
+    }
+
+    var nodes = this.getLinks('nodes');
+    if (!nodes.length) {
+        return;
+    }
+    var childIds = [];
+    var parentIds = [];
+
+    for (var n = 0; n < nodes.length; ++n) {
+        var node = nodes[n];
+        if (node.ids[0] == this.id) { // child  link
+            childIds.push(node.ids[1]);
+        } else if (node.ids[1] == this.id) {
+            parentIds.push(node.ids[0]);
+        }
+        node.destroy();
+    }
+
+    for (var p = 0; p < parentIds.length; ++p) {
+        var parent = this.space.get(p);
+        if (parent && parent.active && (!parent.simple)) {
+            for (var c = 0; c < childIds.length; ++c) {
+                parent.link(childIds[c]);
+            }
+        }
+    }
+};
+
+Snap.prototype.listen = function (message, listener, bindListener) {
+    if(!this.receptors[message]){
+        this.receptors[message] = new signals.Signal();
+    }
+    this.receptors[message].add(bindListener ? listener.bind(this) : listener);
 };

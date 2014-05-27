@@ -1,4 +1,3 @@
-
 Snap.prototype.merge = function (prop, value, combiner) {
     if (!this.has(prop)) {
         return this.set(prop, value);
@@ -37,18 +36,38 @@ Snap.prototype.updateProp = function (prop, broadcast) {
     }
 };
 
-Snap.prototype.has = function (prop) {
-    return this._props.hasOwnProperty(prop);
+Snap.prototype.has = function (prop, my) {
+    return my ? this._myProps.hasOwnProperty(prop) : this._props.hasOwnProperty(prop);
 };
 
 Snap.prototype.set = function (prop, value, immediate) {
-    if (this.simple){
+    if (this.simple) {
         this._props[prop] = value;
-        return;
+        return this;
     }
     this._myProps[prop] = value;
     this._pendingChanges[prop] = value;
-    this.broadcast('inherit', prop, value);
+    if (immediate) this.update();
+
+    var ch = this.nodeChildren();
+    for (var c = 0; c < ch.length; ++c){
+        ch[c].inherit(prop, value, immediate);
+    }
+    return this;
+};
+
+Snap.prototype.inherit = function(prop, value, immediate){
+    if (this._myProps.hasOwnProperty(prop, 1)){
+        return;
+    }
+    //@TODO: neutralize non changes?
+    this._pendingChanges[prop] = value;
+    if (immediate ) this.update();
+
+    var ch = this.nodeChildren();
+    for (var c = 0; c < ch.length; ++c){
+        ch[c].inherit(prop, value, immediate);
+    }
     return this;
 };
 
@@ -64,7 +83,7 @@ Snap.prototype.setAndUpdate = function (prop, value) {
 };
 
 Snap.prototype.get = function (prop, pending) {
-    if (pending) {
+    if (pending && (!this.simple)) {
         if (this._pendingChanges.hasOwnProperty(prop)) {
             return this._pendingChanges[prop];
         }

@@ -105,6 +105,16 @@ SNAPS.assert = {
         }
     },
 
+    fn: function (item, message) {
+        var response = (arguments.length > 1 && (typeof(arguments[arguments.length - 1]) == 'function')) ? arguments[arguments.length - 1] : false;
+        if (response) {
+            return check.fn(item) ? item : response();
+        } else {
+            check.verify.fn(item, message);
+            return item;
+        }
+    },
+
     int: function (item, message) {
         var response = (arguments.length > 1 && (typeof(arguments[arguments.length - 1]) == 'function')) ? arguments[arguments.length - 1] : false;
         if (response) {
@@ -329,62 +339,6 @@ SNAPS.assert = {
 
 };
 
-
-var relId = 0;
-/**
- *
- * Rel (Relationship) is a trinary join of two snaps;
- * it has a string relType and optional metadata.
- * It exists to allow for semantic joins
- * 
- * @param params {Object} configures the Rel
- * @param meta {Object} an optional annotation
- * @constructor
- */
-SNAPS.Rel = function (params, meta) {
-    this.id = ++relId;
-    var space = SNAPS.assert.prop(params, 'space');
-    this.space = SNAPS.assert.$TYPE(space, 'SPACE');
-    this.meta = _.isObject(meta) ? meta : false;
-
-    var fromId = SNAPS.assert.prop(params, 'from');
-    if (!_.isNumber(fromId)) {
-        fromId = SNAPS.assert.$TYPE(fromId, 'SNAP').id;
-    }
-    this.fromId = fromId;
-
-    var toId = SNAPS.assert.prop(params, 'to');
-    if (!_.isNumber(toId)) {
-        toId = SNAPS.assert.$TYPE(toId, 'SNAP').id;
-    }
-    this.toId = toId;
-
-    var relType = SNAPS.assert.prop(params, 'relType');
-    relType = SNAPS.assert.string(relType, 'relType must be string');
-    this.relType = SNAPS.assert.notempty(relType, 'string', 'relType must not be empty');
-    this.active = true;
-};
-
-SNAPS.Rel.prototype.broadcast = function (fromId, message, property, value) {
-    this.toSnap().hear(message, property, value);
-};
-
-SNAPS.Rel.prototype.toSnap = function () {
-    return this.space.snap(this.toId, true);
-};
-
-SNAPS.Rel.prototype.fromSnap = function () {
-    return this.space.snap(this.fromId, true);
-};
-
-SNAPS.Rel.prototype.toJSON = function(){
-    return {fromId: this.fromId, toId: this.toId, relType: this.relType}
-};
-
-SNAPS.Rel.prototype.destroy = function(){
-    this.active = false;
-    this.fromSnap().removeRel(this);
-};
 var linkId = 0;
 /**
  *
@@ -649,6 +603,166 @@ SNAPS.Link.prototype.removeSnap = function (snap) {
     this.ids = _.difference(this.ids, [snap]);
     return this;
 };
+
+SNAPS.Link.prototype.impulse = function (impulse) {
+    if (impulse.$TYPE != 'IMPULSE') {
+        var args = _.toArray(arguments);
+        impulse = SNAPS.impulse.apply(SNAPS, args);
+        impulse.setOrigin(this);
+    }
+
+    if (!impulse.active) {
+        return;
+    }
+
+    if (impulse.linkFilter){
+        if (!impulse.linkFilter(this)){
+            return;
+        }
+    }
+
+    /**
+     * send the impulse to any snap in this link that have not heard it already.
+     * note - the natual flow of semantic and node impulses is always downward;
+     * so imuplse.startId skips the known ids in favor of downstream ones.
+     */
+
+    for (var i = impulse.startId; i < this.ids.length; ++i) {
+        var add = true;
+        var id = this.ids[id];
+        for (var h = 0; add && h < impulse.heard.length; ++h) {
+            if (impulse.heard[h] == id) {
+                add = false;
+            }
+        }
+        if (add) {
+            var receivingSnap = this.get(i);
+            if (receivingSnap.active && (!receivingSnap.simple)) {
+                receivingSnap.impulse(impulse);
+            }
+        }
+    }
+
+};
+
+SNAPS.impulse = function (origin, message, linkType, props, meta) {
+    console.log('impulse: origin %s %s, message:%s, type: %s', origin.$TYPE, origin.id, message, linkType);
+
+    linkType = linkType || 'node';
+    var heardSnapIds = [];
+    var heardLinkIds = [];
+    var linkFilter = props && props.linkFilter ? SNAPS.assert.fn(props.linkFilter) : false;
+    var snapFilter = props && props.snapFilter ? SNAPS.assert.fn(props.snapFilter) : false;
+
+    meta = meta || (props && props.meta ? props.meta : false);
+    var linkIdStartPlace;
+    switch (this.linkType) {
+        case 'node':
+            linkIdStartPlace = 1;
+
+            break;
+
+        case 'semantic':
+            linkIdStartPlace = 2;
+
+            break;
+        default:
+            linkIdStartPlace = 0;
+    }
+    var links = [];
+    var snaps = [];
+
+    switch (origin.$TYPE) {
+
+        case 'SNAP':
+            snaps = [origin];
+            heardSnapIds.push(origin.id);
+            break;
+
+        case 'LINK':
+            links = [origin];
+            break;
+
+        default:
+            throw 'Impulse received with no valid origin'
+    }
+
+    while (snaps.length || links.length) {
+
+        for (var i = 0; i < links.length; ++i) {
+            var link = links[i];
+            var lHeard = false;
+            for (var lh = 0; (!lHeard) && lh < heardLinkIds.length; ++lh) {
+                lHeard = (heardLinkIds[lh] == link.id);
+            }
+            heardLinkIds.push(link.id);
+
+            if (lHeard || (link.linkType !== linkType)) {
+                continue;
+            }
+            if (linkFilter && (!linkFilter(link))) {
+                continue;
+            }
+            for (var l = linkIdStartPlace; l < link.ids.length; ++l) {
+                var linkSnap = link.get(l);
+                if ((!linkSnap.active) || (linkSnap.simple)) {
+                    continue;
+                }
+                snaps.push(linkSnap);
+            }
+        }
+        links = [];
+
+        snaps = _.uniq(snaps);
+       // console.log('------ snaps run ---------');
+       // console.log(_.pluck(snaps, 'id').join('  '));
+        for (var s = 0; s < snaps.length; ++s) {
+            var snap = snaps[s];
+            var sHeard = false;
+          //  console.log('HEARD SNAPS --------- checking for %s in %s', snap.id, heardSnapIds.join(','))
+            for (var sh = 0; (!sHeard) && sh < heardSnapIds.length; ++sh) {
+                sHeard = (heardSnapIds[sh] == snap.id);
+             //   if (sHeard) console.log('.... found');
+            }
+            heardSnapIds.push(snap.id);
+
+            if ( !snap.active || snap.simple || (snapFilter && !snapFilter(snap))) {
+           //     console.log('.... not emitting for %s', snap.id);
+                continue;
+            }
+            if ((!sHeard) && snap.receptors[message]) {
+          //      console.log('==== dispatching for %s', snap.id);
+                snap.receptors[message].dispatch(meta);
+            }
+            switch (linkType) {
+                case 'semantic':
+                    for (var sl = 0; sl < snap.links.length; ++sl) {
+                        var slink = snap.links[sl];
+                        if (slink.ids[0] == snap.id) {
+                            links.push(slink);
+                        }
+                    }
+                    break;
+
+                case 'node':
+                    for (var sl = 0; sl < snap.links.length; ++sl) {
+                        var slink = snap.links[sl];
+                        if (slink.ids[0] == snap.id) {
+               //             console.log('adding link %s from %s', slink.ids.join(','), snap.id);
+                            links.push(slink);
+                        }
+                    }
+                    break;
+
+                default:
+                    throw 'not set up to send impulse to other networks yet...';
+            }
+        }
+        snaps = [];
+
+    }
+
+};
 /*!
 * @license TweenJS
 * Visit http://createjs.com/ for documentation, updates and examples.
@@ -803,8 +917,8 @@ SNAPS.BrowserDom = function (space, props) {
     this.space = space;
     this.attrSnap = space.snap();
 
-    var rel = this.attrSnap.rel('style', space.snap());
-    this.styleSnap = rel.toSnap();
+  //  var rel = this.attrSnap.rel('style', space.snap());
+    this.styleSnap = space.snap();
 
     this.tagName = props.tagName || 'div';
     delete props.tagName;
@@ -1035,11 +1149,16 @@ function Snap(space, id, props) {
 
     /**
      * Observers are hooks that should run when a given property changes.
+     *
      * @type {Array}
      */
     this.observers = [];
 
-    this._changeSignals = {};
+    this.changeReceptors = {};
+
+    this.receptors = {
+        inherit: new signals.Signal()
+    };
 
     /**
      * rels (relationships) are collections of pointers to other Snaps.
@@ -1134,8 +1253,9 @@ Snap.prototype.hasUpdates = function () {
     return false;
 };
 
-//@#TODO: replace with signals API
 Snap.prototype.hear = function (message, prop, value) {
+    throw new Error('replaced with impulse API');
+   /*
     switch (message) {
         case 'inherit':
             if (this._myProps.hasOwnProperty(prop)) {
@@ -1156,18 +1276,19 @@ Snap.prototype.hear = function (message, prop, value) {
                     this.update(true);
                 }
             }
-    }
+    }*/
 };
 
 Snap.prototype.family = function () {
-    var out = {id: this.id};
+    throw new Error('deprecated - use #nodeFamily');
+/*    var out = {id: this.id};
 
     out.children = _.map(this.children(),
         function (child) {
             return child.family();
         });
 
-    return out;
+    return out;*/
 };
 
 /** ordinarily SNAPS is a class that is only created through a space factory.
@@ -1182,7 +1303,13 @@ SNAPS.Snap = function (why) {
 
 
 Snap.prototype.updateBlends = function () {
-    var blends = this.getRels('blend');
+
+    var blends = this.getLinks('semantic', function (link) {
+        var semLink = link.get(1);
+        return semLink.get('meta') == 'blend';
+    });
+
+
     var blendValues = {};
 
     var time = this.space.time;
@@ -1191,11 +1318,12 @@ Snap.prototype.updateBlends = function () {
 
     for (var i = 0; i < blends.length; ++i) {
         var blend = blends[i];
-        var toSnap = blend.toSnap();
-        var prop = toSnap.get('prop', 1);
-        var endTime = toSnap.get('endTime', 1);
+        var blendValueSnap = blend.get(2);
+        var prop = blendValueSnap.get('prop');
+        var endTime = blendValueSnap.get('endTime');
         var value;
-        var endValue = toSnap.get('endValue', 1);
+        var endValue = blendValueSnap.get('endValue');
+        var startValue = SNAPS.assert.or('number', blendValueSnap.get('startValue'), 0);
 
         var progress;
 
@@ -1204,18 +1332,8 @@ Snap.prototype.updateBlends = function () {
             progress = 1;
             doneBlends.push(blend);
         } else {
-            var startTime = toSnap.get('startTime', 1);
-            var startValue = SNAPS.assert.or('number', toSnap.get('startValue', 1), 0);
-            var dur = endTime - startTime;
-            progress = time - startTime;
-            progress /= dur;
 
-            if (toSnap.has('blend')) {
-                var blendFn = toSnap.get('blend');
-                if (typeof(blendFn) == 'function') {
-                    progress = blendFn(progress);
-                }
-            }
+            progress = _blendProgress(blendValueSnap, time, endTime);
             value = (progress * endValue) + ((1 - progress) * startValue);
         }
 
@@ -1223,55 +1341,62 @@ Snap.prototype.updateBlends = function () {
             blendValues[prop] = [];
         }
 
-        blendValues[prop].push({
-            value: value,
-            progress: progress
-        });
+        blendValues[prop].push(value);
     }
 
     for (var b in blendValues) {
-        var blendSet = blendValues[b];
-        if (blendSet.length == 1) {
-            this.set(b, blendSet[0].value);
-        } else {
-            var weight = 0;
-            var netValue = 0;
-            for (var bw = 0; bw < blendSet.length; ++bw) {
-                var partProgress = blendSet[bw].progress;
-                netValue += blendSet[bw].value * partProgress;
-                weight += partProgress;
-            }
-            if (weight > 0) {
-                this.set(b, netValue / weight);
-            }
+        if (blendValues[b].length != 1) {
+            console.log('multiple blends for ' + b, this.id);
         }
+        this.set(b, blendValues[b][0]);
     }
 
     for (var d = 0; d < doneBlends.length; ++d) {
-        this.removeRel(doneBlends[d]);
-        if (this.blendCount > 0) {
-            --this.blendCount;
+        doneBlends[0].destroy();
+    }
+    this.blendCount = Math.max(0, this.blendCount - doneBlends.length);
+};
+
+function _blendProgress(blendSnap, time, endTime) {
+
+    var startTime = blendSnap.get('startTime');
+    var dur = endTime - startTime;
+    var progress = time - startTime;
+    progress /= dur;
+
+    if (blendSnap.has('blend')) {
+        var blendFn = blendSnap.get('blend');
+        if (typeof(blendFn) == 'function') {
+            progress = blendFn(progress);
         }
     }
-};
+    return progress;
+}
 
 Snap.prototype.blend = function (prop, endValue, time, blendFn) {
     this.retireOtherBlends(prop, time);
-    var valueSnap = this.space.snap();
+    var valueSnap = this.space.snap(true); // simple/static snap
     valueSnap.set('prop', prop);
     var startValue = this.has(prop) ? parseFloat(this.get(prop)) || 0 : 0;
     valueSnap.set('startValue', startValue)
-        .set('endValue', endValue)
+        .set('endValue', SNAPS.assert.number(endValue))
         .set('startTime', this.space.time)
         .set('endTime', this.space.time + Math.max(parseInt(time), 1))
         .set('blend', blendFn);
-    this.rel('blend', valueSnap, {prop: prop});
+    var metaSnap = this.space.snap({
+        simple: true,
+        meta: 'blend',
+        prop: prop
+    });
+    this.link('semantic', metaSnap, valueSnap);
     this.blendCount++;
 };
 
 Snap.prototype.retireOtherBlends = function (prop, time) {
-    var otherBlends = _.filter(this.getRels('blend'), function (r) {
-        return r.meta.prop == prop;
+    var otherBlends = this.getLinks('semantic', function (link) {
+
+        var metaSnap =  link.get(1);
+        return (metaSnap.get('meta') == 'blend') && (metaSnap.get('prop') == prop);
     });
 
     _.each(otherBlends, function (blend) {
@@ -1311,8 +1436,9 @@ Snap.prototype.link = function () {
 };
 
 Snap.prototype.getLinks = function (linkType, filter) {
+    var self = this;
     return _.filter(this.links, function (l) {
-        return (l.linkType == linkType) ? ((filter) ? filter(l) : true) : false;
+        return (l.linkType == linkType) ? ((filter) ? filter(l, self) : true) : false;
     });
 };
 
@@ -1326,9 +1452,13 @@ Snap.prototype.nodeChildNodes = function () {
 Snap.prototype.nodeChildren = function (ids) {
     var nodes = this.nodeChildNodes();
 
-    return _.map(nodes, function (n) {
-        return n.get(1, ids);
-    });
+    return _.reduce(nodes, function (o, n) {
+        var s = n.get(1, ids);
+        if (s.active && !s.simple) {
+            o.push(s);
+        }
+        return o;
+    }, []);
 };
 
 Snap.prototype.hasNodeChildren = function () {
@@ -1401,6 +1531,61 @@ Snap.prototype.nodeFamily = function () {
 
     return out;
 };
+
+Snap.prototype.impulse = function (message, linkType, props, meta) {
+    SNAPS.impulse(this, message, linkType, props, meta);
+};
+
+Snap.prototype.broadcastUpdate = function () {
+    var children = this.nodeChildren();
+    for (var c = 0; c < children.length; ++c) {
+        children[c].update(true);
+    }
+};
+
+/**
+ * prepare this snap to be destroyed;
+ * links all the children of this snap to its parent(s) if any
+ * and destroys its node links.
+ */
+Snap.prototype.unparent = function () {
+    if (this.simple) {
+        return;
+    }
+
+    var nodes = this.getLinks('nodes');
+    if (!nodes.length) {
+        return;
+    }
+    var childIds = [];
+    var parentIds = [];
+
+    for (var n = 0; n < nodes.length; ++n) {
+        var node = nodes[n];
+        if (node.ids[0] == this.id) { // child  link
+            childIds.push(node.ids[1]);
+        } else if (node.ids[1] == this.id) {
+            parentIds.push(node.ids[0]);
+        }
+        node.destroy();
+    }
+
+    for (var p = 0; p < parentIds.length; ++p) {
+        var parent = this.space.get(p);
+        if (parent && parent.active && (!parent.simple)) {
+            for (var c = 0; c < childIds.length; ++c) {
+                parent.link(childIds[c]);
+            }
+        }
+    }
+};
+
+Snap.prototype.listen = function (message, listener, bindListener) {
+    if(!this.receptors[message]){
+        this.receptors[message] = new signals.Signal();
+    }
+    this.receptors[message].add(bindListener ? listener.bind(this) : listener);
+};
 /**
  * check one or more properties for changes; enact handler when changes happen
  *
@@ -1445,7 +1630,6 @@ Snap.prototype.updateObservers = function () {
     }
 };
 
-
 Snap.prototype.merge = function (prop, value, combiner) {
     if (!this.has(prop)) {
         return this.set(prop, value);
@@ -1484,18 +1668,38 @@ Snap.prototype.updateProp = function (prop, broadcast) {
     }
 };
 
-Snap.prototype.has = function (prop) {
-    return this._props.hasOwnProperty(prop);
+Snap.prototype.has = function (prop, my) {
+    return my ? this._myProps.hasOwnProperty(prop) : this._props.hasOwnProperty(prop);
 };
 
 Snap.prototype.set = function (prop, value, immediate) {
-    if (this.simple){
+    if (this.simple) {
         this._props[prop] = value;
-        return;
+        return this;
     }
     this._myProps[prop] = value;
     this._pendingChanges[prop] = value;
-    this.broadcast('inherit', prop, value);
+    if (immediate) this.update();
+
+    var ch = this.nodeChildren();
+    for (var c = 0; c < ch.length; ++c){
+        ch[c].inherit(prop, value, immediate);
+    }
+    return this;
+};
+
+Snap.prototype.inherit = function(prop, value, immediate){
+    if (this._myProps.hasOwnProperty(prop, 1)){
+        return;
+    }
+    //@TODO: neutralize non changes?
+    this._pendingChanges[prop] = value;
+    if (immediate ) this.update();
+
+    var ch = this.nodeChildren();
+    for (var c = 0; c < ch.length; ++c){
+        ch[c].inherit(prop, value, immediate);
+    }
     return this;
 };
 
@@ -1511,207 +1715,12 @@ Snap.prototype.setAndUpdate = function (prop, value) {
 };
 
 Snap.prototype.get = function (prop, pending) {
-    if (pending) {
+    if (pending && (!this.simple)) {
         if (this._pendingChanges.hasOwnProperty(prop)) {
             return this._pendingChanges[prop];
         }
     }
     return this._props[prop];
-};
-Snap.prototype.getRels = function (relType) {
-    if (this.simple) {
-        throw 'Cannot add relationships to simple snaps';
-    }
-    return _.reduce(this.rels, function (list, rel) {
-        if (rel.relType == relType) {
-            list.push(rel);
-        }
-        return list;
-    }, []);
-};
-
-Snap.prototype.rel = function (relType, toId, meta) {
-    if (this.simple) {
-        throw 'Cannot add relationships to simple snaps';
-    }
-    var rel = new SNAPS.Rel({
-        space: this.space,
-        relType: relType,
-        from: this,
-        to: toId,
-        order: this.getRels(relType).length
-    }, meta);
-    this.rels.push(rel);
-    return rel;
-};
-
-/**
- * gets a subset of relationships;
- * can filter by relType (if string),
- * toId (if number), or functionally.
- * Any number of filters can be passed; if none are, all rels are returned;
- * @returns {Array}
- */
-Snap.prototype.getRels = function () {
-    if (this.simple) {
-        return [];
-    }
-    if (!arguments.length) {
-        return this.rels.slice();
-    }
-
-    var i;
-    var out;
-    var rels = this.rels;
-
-    for (var a = 0; a < arguments.length; ++a) {
-        out = [];
-        var filter = arguments[a];
-        if (_.isString(filter)) {
-            for (i = 0; i < rels.length; ++i) {
-                if (rels[i].relType == filter) {
-                    out.push(rels[i]);
-                }
-            }
-        } else if (_.isNumber(filter)) {
-            for (i = 0; i < rels.length; ++i) {
-                if (rels[i].toId == filter) {
-                    out.push(rels[i]);
-                }
-            }
-        } else if (_.isFunction(filter)) {
-            out = _.filter(rels, filter);
-        }
-        rels = out;
-    }
-
-    return out;
-};
-
-/**
- * adds (and creates if necessary) a child snap.
- *
- * @param snap {Snap}
- * @returns {*}
- */
-Snap.prototype.addChild = function (snap) {
-    /*    if (this.simple){
-     throw 'Cannot add child to simple snap';
-     }
-     if (snap) {
-     snap.unparent();
-     } else {
-     snap = this.space.snap();
-     }
-     snap.rel('parent', this);
-     this.rel('child', snap);
-     return snap;*/
-    return this.link(snap);
-};
-
-Snap.prototype.children = function () {
-    /*    if (this.simple){
-     return [];
-     }
-     var out = [];
-     for (var i = 0; i < this.rels.length; ++i) {
-     if (this.rels[i].relType == 'child') {
-     out.push(this.rels[i].toSnap());
-     }
-     }
-     return out;*/
-    return this.nodeChildren();
-};
-
-/**
- * prepare this snap to be destroyed;
- * links all the children of this snap to its parent(s) if any
- * and destroys its node links.
- */
-Snap.prototype.unparent = function () {
-    if (this.simple) {
-        return;
-    }
-
-    var nodes = this.getLinks('nodes');
-    if (!nodes.length) {
-        return;
-    }
-    var childIds = [];
-    var parentIds = [];
-
-    for (var n = 0; n < nodes.length; ++n) {
-        var node = nodes[n];
-        if (node.ids[0] == this.id) { // child  link
-            childIds.push(node.ids[1]);
-        } else if (node.ids[1] == this.id) {
-            parentIds.push(node.ids[0]);
-        }
-        node.destroy();
-    }
-
-    for (var p = 0; p < parentIds.length; ++p) {
-        var parent = this.space.get(p);
-        if (parent && parent.active && (!parent.simple)) {
-            for (var c = 0; c < childIds.length; ++c) {
-                parent.link(childIds[c]);
-            }
-        }
-    }
-};
-
-/*
- Snap.prototype.adoptChildren = function (snap) {
- if (this.simple) {
- return;
- }
-
- var childRels = this.getRels(snap.id, 'child');
- for (var p = 0; p < childRels.length; ++p) {
- childRels[p].active = false;
- }
-
- var snapchildRels = snap.getRels('child');
-
- for (var s = 0; s < snapchildRels.length; ++s) {
- this.addChild(snapchildRels[s].toSnap());
- snapchildRels[s].active = false;
- }
- snap.cleanseRels();
- };*/
-
-Snap.prototype.cleanseRels = function () {
-    if (this.simple) {
-        return;
-    }
-    this.rels = _.filter(this.rels, function (r) {
-        return r.active;
-    });
-};
-
-Snap.prototype.removeRel = function (rel) {
-    if (this.simple) {
-        return;
-    }
-    this.rels = _.reject(this.rels, function (r) {
-        return r.id == rel.id;
-    });
-    rel.active = false;
-};
-
-Snap.prototype.broadcastToChildren = function () {
-    this.broadcast('update');
-};
-
-Snap.prototype.broadcast = function (message, prop, value) {
-    if (this.simple) {
-        return;
-    }
-    var children = this.nodeChildren();
-
-    for (var c = 0; c < children.length; ++c) {
-        children[c].hear(message, prop, value);
-    }
 };
 Snap.prototype.update = function (broadcast) {
     if (this.updated) {
@@ -1720,7 +1729,7 @@ Snap.prototype.update = function (broadcast) {
 };
 
 var changeSet = 0;
-Snap.prototype.updateChanges = function () {
+Snap.prototype.updateProperties = function () {
     if (this.simple){
         return;
     }
@@ -1729,8 +1738,8 @@ Snap.prototype.updateChanges = function () {
     if (pending){
         ++changeSet;
         for (var p in pending){
-            if (this._changeSignals.hasOwnProperty(p)){
-                this._changeSignals[p].dispatch(
+            if (this.changeReceptors.hasOwnProperty(p)){
+                this.changeReceptors[p].dispatch(
                     pending[p].pending,
                     pending[p].old,
                     pending[p].new,
@@ -1767,17 +1776,17 @@ Snap.prototype.initUpdated = function () {
         doBlendsBinding.active = (this.blendCount > 0);
         //  doUpdatePhysicsBinding.active = (this.physicsCount > 0);
         doUpdateObserversBinding.active = (this.observers.length);
-        doBroadcastChangesBinding.active = !!broadcast;
+        doBroadcastUpdateBinding.active = !!broadcast;
     }.bind(this));
 
     var doBlendsBinding = this.updated.add(this.updateBlends.bind(this));
     // var doUpdatePhysicsBinding = this.updated.add(this.updatePhysics.bind(this));
     var doUpdateObserversBinding = this.updated.add(this.updateObservers.bind(this));
-    var doChangesBinding = this.updated.add(this.updateChanges.bind(this));
-    var doBroadcastChangesBinding = this.updated.add(this.broadcastToChildren.bind(this));
+    var doChangesBinding = this.updated.add(this.updateProperties.bind(this));
     var doCleanupBinding = this.updated.add(this.cleanupDeleted.bind(this));
+    var doBroadcastUpdateBinding = this.updated.add(this.broadcastUpdate.bind(this));
 
-}
+};
 var Space = function () {
     this.id = 1;
     this.snaps = [];

@@ -45,11 +45,16 @@ function Snap(space, id, props) {
 
     /**
      * Observers are hooks that should run when a given property changes.
+     *
      * @type {Array}
      */
     this.observers = [];
 
-    this._changeSignals = {};
+    this.changeReceptors = {};
+
+    this.receptors = {
+        inherit: new signals.Signal()
+    };
 
     /**
      * rels (relationships) are collections of pointers to other Snaps.
@@ -144,8 +149,9 @@ Snap.prototype.hasUpdates = function () {
     return false;
 };
 
-//@#TODO: replace with signals API
 Snap.prototype.hear = function (message, prop, value) {
+    throw new Error('replaced with impulse API');
+   /*
     switch (message) {
         case 'inherit':
             if (this._myProps.hasOwnProperty(prop)) {
@@ -166,18 +172,19 @@ Snap.prototype.hear = function (message, prop, value) {
                     this.update(true);
                 }
             }
-    }
+    }*/
 };
 
 Snap.prototype.family = function () {
-    var out = {id: this.id};
+    throw new Error('deprecated - use #nodeFamily');
+/*    var out = {id: this.id};
 
     out.children = _.map(this.children(),
         function (child) {
             return child.family();
         });
 
-    return out;
+    return out;*/
 };
 
 /** ordinarily SNAPS is a class that is only created through a space factory.

@@ -5,7 +5,7 @@ Snap.prototype.update = function (broadcast) {
 };
 
 var changeSet = 0;
-Snap.prototype.updateChanges = function () {
+Snap.prototype.updateProperties = function () {
     if (this.simple){
         return;
     }
@@ -14,8 +14,8 @@ Snap.prototype.updateChanges = function () {
     if (pending){
         ++changeSet;
         for (var p in pending){
-            if (this._changeSignals.hasOwnProperty(p)){
-                this._changeSignals[p].dispatch(
+            if (this.changeReceptors.hasOwnProperty(p)){
+                this.changeReceptors[p].dispatch(
                     pending[p].pending,
                     pending[p].old,
                     pending[p].new,
@@ -52,14 +52,14 @@ Snap.prototype.initUpdated = function () {
         doBlendsBinding.active = (this.blendCount > 0);
         //  doUpdatePhysicsBinding.active = (this.physicsCount > 0);
         doUpdateObserversBinding.active = (this.observers.length);
-        doBroadcastChangesBinding.active = !!broadcast;
+        doBroadcastUpdateBinding.active = !!broadcast;
     }.bind(this));
 
     var doBlendsBinding = this.updated.add(this.updateBlends.bind(this));
     // var doUpdatePhysicsBinding = this.updated.add(this.updatePhysics.bind(this));
     var doUpdateObserversBinding = this.updated.add(this.updateObservers.bind(this));
-    var doChangesBinding = this.updated.add(this.updateChanges.bind(this));
-    var doBroadcastChangesBinding = this.updated.add(this.broadcastToChildren.bind(this));
+    var doChangesBinding = this.updated.add(this.updateProperties.bind(this));
     var doCleanupBinding = this.updated.add(this.cleanupDeleted.bind(this));
+    var doBroadcastUpdateBinding = this.updated.add(this.broadcastUpdate.bind(this));
 
-}
+};

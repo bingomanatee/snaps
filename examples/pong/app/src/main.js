@@ -30,6 +30,10 @@ define(function (require, exports, module) {
         }, 2000);
     }, 3000);
 
+    setTimeout(function(){
+        box3.styleSnap.blend('width', 800, 300, SNAPS.ease.elasticOut);
+    }, 2000);
+
 
 
     var box2 = new SNAPS.BrowserDom(space, {
@@ -40,6 +44,16 @@ define(function (require, exports, module) {
         html: 'Danny Dommo',
         addElement: true,
         'background-color': 'green'
+    });
+
+    var box3 = new SNAPS.BrowserDom(space, {
+        position: 'absolute',
+        top: 150,
+        width: 100,
+        height: 150,
+        html: 'Danny Dommo',
+        addElement: true,
+        'background-color': 'blue'
     });
 
     animate();

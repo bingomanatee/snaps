@@ -72,6 +72,16 @@ SNAPS.assert = {
         }
     },
 
+    fn: function (item, message) {
+        var response = (arguments.length > 1 && (typeof(arguments[arguments.length - 1]) == 'function')) ? arguments[arguments.length - 1] : false;
+        if (response) {
+            return check.fn(item) ? item : response();
+        } else {
+            check.verify.fn(item, message);
+            return item;
+        }
+    },
+
     int: function (item, message) {
         var response = (arguments.length > 1 && (typeof(arguments[arguments.length - 1]) == 'function')) ? arguments[arguments.length - 1] : false;
         if (response) {

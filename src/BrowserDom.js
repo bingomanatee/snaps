@@ -30,8 +30,8 @@ SNAPS.BrowserDom = function (space, props) {
     this.space = space;
     this.attrSnap = space.snap();
 
-    var rel = this.attrSnap.rel('style', space.snap());
-    this.styleSnap = rel.toSnap();
+  //  var rel = this.attrSnap.rel('style', space.snap());
+    this.styleSnap = space.snap();
 
     this.tagName = props.tagName || 'div';
     delete props.tagName;

@@ -262,3 +262,44 @@ SNAPS.Link.prototype.removeSnap = function (snap) {
     this.ids = _.difference(this.ids, [snap]);
     return this;
 };
+
+SNAPS.Link.prototype.impulse = function (impulse) {
+    if (impulse.$TYPE != 'IMPULSE') {
+        var args = _.toArray(arguments);
+        impulse = SNAPS.impulse.apply(SNAPS, args);
+        impulse.setOrigin(this);
+    }
+
+    if (!impulse.active) {
+        return;
+    }
+
+    if (impulse.linkFilter){
+        if (!impulse.linkFilter(this)){
+            return;
+        }
+    }
+
+    /**
+     * send the impulse to any snap in this link that have not heard it already.
+     * note - the natual flow of semantic and node impulses is always downward;
+     * so imuplse.startId skips the known ids in favor of downstream ones.
+     */
+
+    for (var i = impulse.startId; i < this.ids.length; ++i) {
+        var add = true;
+        var id = this.ids[id];
+        for (var h = 0; add && h < impulse.heard.length; ++h) {
+            if (impulse.heard[h] == id) {
+                add = false;
+            }
+        }
+        if (add) {
+            var receivingSnap = this.get(i);
+            if (receivingSnap.active && (!receivingSnap.simple)) {
+                receivingSnap.impulse(impulse);
+            }
+        }
+    }
+
+};

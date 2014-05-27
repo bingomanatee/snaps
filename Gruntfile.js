@@ -10,6 +10,7 @@ module.exports = function(grunt) {
                         'src/assert.js',
                         'src/Rel.js',
                         'src/Link.js',
+                        'src/Impulse.js',
                         'src/ease.js',
                         'src/Observer.js',
                         'src/BrowserDom.js',

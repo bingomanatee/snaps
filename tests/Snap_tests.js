@@ -73,7 +73,7 @@ describe('SNAPS', function () {
 
                 snap.get('foo').should.eql(1);
                 snap.hasUpdates().should.eql(false);
-            })
+            });
 
             it('should let you set a property with instant update', function () {
                 snap.hasUpdates().should.eql(false);
@@ -182,232 +182,6 @@ describe('SNAPS', function () {
             })
         });
 
-        describe.skip('relationships', function () {
-
-            describe('#getRel', function () {
-                var space, snap;
-
-                before(function () {
-                    space = SNAPS.space();
-                    snap = space.snap();
-
-                    snap.rels = [
-                        new SNAPS.Rel({from: snap, space: space, to: 1, relType: 'foo'}),
-                        new SNAPS.Rel({from: snap, space: space, to: 2, relType: 'foo'}),
-                        new SNAPS.Rel({from: snap, space: space, to: 1, relType: 'bar'}),
-                        new SNAPS.Rel({from: snap, space: space, to: 2, relType: 'bar'})
-                    ]
-                });
-
-                it('should get foos', function () {
-
-                    var foos = _.map(snap.getRels('foo'), function (r) {
-                        return r.toJSON();
-                    });
-
-                    foos.should.eql([
-                        { fromId: 0, toId: 1, relType: 'foo' },
-                        { fromId: 0, toId: 2, relType: 'foo' }
-                    ]);
-                });
-
-                it('should get 1s', function () {
-
-                    var foos = _.map(snap.getRels(1), function (r) {
-                        return r.toJSON();
-                    });
-
-                    foos.should.eql([
-                        { fromId: 0, toId: 1, relType: 'foo' },
-                        { fromId: 0, toId: 1, relType: 'bar' }
-                    ]);
-                });
-
-                it('should get foo 1s', function () {
-
-                    var foos = _.map(snap.getRels(1, 'foo'), function (r) {
-                        return r.toJSON();
-                    });
-
-                    foos.should.eql([
-                        { fromId: 0, toId: 1, relType: 'foo' }
-                    ]);
-
-                    // asking with different order of params
-
-                    foos = _.map(snap.getRels('foo', 1), function (r) {
-                        return r.toJSON();
-                    });
-
-                    foos.should.eql([
-                        { fromId: 0, toId: 1, relType: 'foo' }
-                    ]);
-                })
-            });
-
-            describe.skip('parent child relationships', function () {
-
-                describe('1-1 relationship', function () {
-
-                    var space;
-                    var snap;
-
-                    before(function () {
-                        space = SNAPS.space();
-                        snap = space.snap();
-                        snap.link(space.snap());
-                    });
-
-                    it('should reflect parent child relationships', function () {
-
-                        var family = snap.nodeFamily();
-                        family.should.eql({
-                            id: 0,
-                            children: [
-                                {id: 1, children: []}
-                            ]
-                        });
-
-                    })
-                })
-
-            });
-
-            describe.skip('1-1-1 relationship', function () {
-
-                var space;
-                var snap;
-
-                before(function () {
-                    space = SNAPS.space();
-                    snap = space.snap();
-                    snap.addChild().addChild();
-                });
-
-                it('should reflect parent child relationships', function () {
-
-                    var family = snap.family();
-                    family.should.eql({
-                        id: 0,
-                        children: [
-                            {id: 1, children: [
-                                {id: 2, children: []}
-                            ]}
-                        ]
-                    });
-
-                })
-            });
-
-            describe.skip('1-many relationship', function () {
-
-                var space;
-                var snap;
-
-                before(function () {
-                    space = SNAPS.space();
-                    snap = space.snap();
-                    snap.addChild();
-                    snap.addChild();
-                    snap.addChild();
-                });
-
-                it('should reflect parent child relationships', function () {
-
-                    var family = snap.family();
-                    family.should.eql({
-                        id: 0,
-                        children: [
-                            {id: 1, children: []},
-                            {id: 2, children: []},
-                            {id: 3, children: []}
-                        ]
-                    });
-
-                });
-            });
-
-            describe.skip('1-many-many relationship', function () {
-
-                var space;
-                var snap;
-
-                before(function () {
-                    space = SNAPS.space();
-                    snap = space.snap();
-                    var c1 = snap.addChild();
-                    c1.addChild();
-                    c1.addChild();
-
-                    var c2 = snap.addChild();
-                    c2.addChild();
-                    c2.addChild();
-                });
-
-                it('should reflect parent child relationships', function () {
-
-                    var family = snap.family();
-
-                    family.should.eql({ id: 0,
-                        children: [
-                            { id: 1,
-                                children: [
-                                    { id: 2, children: [] },
-                                    { id: 3, children: [] }
-                                ] },
-                            { id: 4,
-                                children: [
-                                    { id: 5, children: [] },
-                                    { id: 6, children: [] }
-                                ] }
-                        ]
-                    });
-
-                });
-            });
-
-            describe.skip('1-many-many remove middle relationship', function () {
-
-                var space;
-                var snap;
-                var c1;
-
-                before(function () {
-                    space = SNAPS.space();
-                    snap = space.snap();
-                    c1 = snap.addChild();
-                    c1.addChild();
-                    c1.addChild();
-
-                    var c2 = snap.addChild();
-                    c2.addChild();
-                    c2.addChild();
-
-                    //  console.log('before remove: %s', util.inspect(snap.family(), {depth: 8}));
-
-                    c1.destroy();
-
-                    //   console.log('after remove for %s: %s', c1.id, util.inspect(snap.family(), {depth: 8}));
-
-                });
-
-                it('should reflect parent child relationships', function () {
-                    snap.family().should.eql({ id: 0,
-                        children: [
-                            { id: 4,
-                                children: [
-                                    { id: 5, children: [] },
-                                    { id: 6, children: [] }
-                                ] },
-                            { id: 2, children: [] },
-                            { id: 3, children: [] }
-                        ] });
-
-                });
-            });
-
-        });
-
         describe('observers', function () {
             describe('change watcher', function () {
                 var space;
@@ -465,7 +239,7 @@ describe('SNAPS', function () {
 
         describe('blends', function () {
 
-            describe('basic', function(){
+            describe('basic', function () {
 
                 var space;
                 var snap;
@@ -494,7 +268,7 @@ describe('SNAPS', function () {
                 });
             });
 
-            describe('should allow you to "change your mind"', function(){
+            describe('should allow you to "change your mind"', function () {
 
                 var space;
                 var snap;
@@ -505,12 +279,12 @@ describe('SNAPS', function () {
                     snap = space.snap();
                     snap.setAndUpdate('y', 0);
                     snap.blend('y', 200, 100);
-                    for (var i =0; i < 200; i += 10){
-                        yValues.push( {time: space.time, y: snap.get('y')});
+                    for (var i = 0; i < 200; i += 10) {
+                        yValues.push({time: space.time, y: snap.get('y')});
                         space.time += 10;
                         space.update();
 
-                        switch (space.time){
+                        switch (space.time) {
                             case 30:
                                 snap.blend('y', 0, 100);
                                 break;
@@ -528,6 +302,110 @@ describe('SNAPS', function () {
             })
 
         });
+
+        describe('#impulse', function () {
+
+            describe('filtered node child impulse spread', function () {
+                var space;
+                var hits;
+                var s1, s2, s3, s4, s5, s6, s7;
+                var expectedIds = [];
+
+                before(function () {
+
+                    space = SNAPS.space();
+                    hits = [];
+
+                    function _hit() {
+                   //     console.log(' >>>>>>>>>> PUSHING SNAP ID %s', this.id);
+                        hits.push(this.id);
+                    }
+
+                    s1 = space.snap();
+                    s2 = space.snap();
+                    s3 = space.snap();
+                    s1.link(s2);
+                    s1.link(s3);
+
+                    s4 = space.snap();
+                    s5 = space.snap();
+                    s6 = space.snap();
+                    s3.link(s4);
+                    s3.link(s5);
+                    s3.link(s6);
+
+                    // every snap listens for impulse
+                    [s1, s2, s3, s4, s5, s6].forEach(function (s) {
+                        s.listen('foo', _hit, true);
+                    });
+
+
+                    [s2, s4, s6].forEach(function (s) {
+                        s.set('bar', 1);
+                    });
+
+                    [s1, s3, s5].forEach(function (s) {
+                        s.set('bar', 2);
+                       if (s.id > 0) expectedIds.push(s.id);
+                    });
+                    space.update();
+
+                });
+
+                it('should have ids in hits', function () {
+                    s1.impulse('foo', 'node', {snapFilter: function (s) {
+                        var bar = s.get('bar');
+                       // console.log('bar of %s == %s', s.id, bar);
+                        return bar == 2;
+                    }
+                    });
+                    hits.should.eql(expectedIds);
+                })
+
+            })
+
+            describe('basic node child impulse spread', function () {
+                var space;
+                var hits;
+                var s1, s2, s3, s4, s5, s6, s7;
+
+                before(function () {
+
+                    space = SNAPS.space();
+                    hits = [];
+
+                    function _hit() {
+                        hits.push(this.id);
+                    }
+
+                    s1 = space.snap();
+
+                    s2 = space.snap();
+                    s3 = space.snap();
+                    s1.link(s2);
+                    s1.link(s3);
+
+                    s4 = space.snap();
+                    s5 = space.snap();
+                    s6 = space.snap();
+                    s3.link(s4);
+                    s3.link(s5);
+                    s3.link(s6);
+
+                    s2.listen('foo', _hit, true);
+                    s5.listen('foo', _hit, true);
+
+                    s1.impulse('foo', 'node');
+
+                });
+
+                it('should have ids in hits', function () {
+                    hits.should.eql([s2.id, s5.id]);
+                })
+
+            })
+
+        })
     });
 
 });

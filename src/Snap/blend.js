@@ -1,5 +1,11 @@
 Snap.prototype.updateBlends = function () {
-    var blends = this.getRels('blend');
+
+    var blends = this.getLinks('semantic', function (link) {
+        var semLink = link.get(1);
+        return semLink.get('meta') == 'blend';
+    });
+
+
     var blendValues = {};
 
     var time = this.space.time;
@@ -8,11 +14,12 @@ Snap.prototype.updateBlends = function () {
 
     for (var i = 0; i < blends.length; ++i) {
         var blend = blends[i];
-        var toSnap = blend.toSnap();
-        var prop = toSnap.get('prop', 1);
-        var endTime = toSnap.get('endTime', 1);
+        var blendValueSnap = blend.get(2);
+        var prop = blendValueSnap.get('prop');
+        var endTime = blendValueSnap.get('endTime');
         var value;
-        var endValue = toSnap.get('endValue', 1);
+        var endValue = blendValueSnap.get('endValue');
+        var startValue = SNAPS.assert.or('number', blendValueSnap.get('startValue'), 0);
 
         var progress;
 
@@ -21,18 +28,8 @@ Snap.prototype.updateBlends = function () {
             progress = 1;
             doneBlends.push(blend);
         } else {
-            var startTime = toSnap.get('startTime', 1);
-            var startValue = SNAPS.assert.or('number', toSnap.get('startValue', 1), 0);
-            var dur = endTime - startTime;
-            progress = time - startTime;
-            progress /= dur;
 
-            if (toSnap.has('blend')) {
-                var blendFn = toSnap.get('blend');
-                if (typeof(blendFn) == 'function') {
-                    progress = blendFn(progress);
-                }
-            }
+            progress = _blendProgress(blendValueSnap, time, endTime);
             value = (progress * endValue) + ((1 - progress) * startValue);
         }
 
@@ -40,55 +37,62 @@ Snap.prototype.updateBlends = function () {
             blendValues[prop] = [];
         }
 
-        blendValues[prop].push({
-            value: value,
-            progress: progress
-        });
+        blendValues[prop].push(value);
     }
 
     for (var b in blendValues) {
-        var blendSet = blendValues[b];
-        if (blendSet.length == 1) {
-            this.set(b, blendSet[0].value);
-        } else {
-            var weight = 0;
-            var netValue = 0;
-            for (var bw = 0; bw < blendSet.length; ++bw) {
-                var partProgress = blendSet[bw].progress;
-                netValue += blendSet[bw].value * partProgress;
-                weight += partProgress;
-            }
-            if (weight > 0) {
-                this.set(b, netValue / weight);
-            }
+        if (blendValues[b].length != 1) {
+            console.log('multiple blends for ' + b, this.id);
         }
+        this.set(b, blendValues[b][0]);
     }
 
     for (var d = 0; d < doneBlends.length; ++d) {
-        this.removeRel(doneBlends[d]);
-        if (this.blendCount > 0) {
-            --this.blendCount;
+        doneBlends[0].destroy();
+    }
+    this.blendCount = Math.max(0, this.blendCount - doneBlends.length);
+};
+
+function _blendProgress(blendSnap, time, endTime) {
+
+    var startTime = blendSnap.get('startTime');
+    var dur = endTime - startTime;
+    var progress = time - startTime;
+    progress /= dur;
+
+    if (blendSnap.has('blend')) {
+        var blendFn = blendSnap.get('blend');
+        if (typeof(blendFn) == 'function') {
+            progress = blendFn(progress);
         }
     }
-};
+    return progress;
+}
 
 Snap.prototype.blend = function (prop, endValue, time, blendFn) {
     this.retireOtherBlends(prop, time);
-    var valueSnap = this.space.snap();
+    var valueSnap = this.space.snap(true); // simple/static snap
     valueSnap.set('prop', prop);
     var startValue = this.has(prop) ? parseFloat(this.get(prop)) || 0 : 0;
     valueSnap.set('startValue', startValue)
-        .set('endValue', endValue)
+        .set('endValue', SNAPS.assert.number(endValue))
         .set('startTime', this.space.time)
         .set('endTime', this.space.time + Math.max(parseInt(time), 1))
         .set('blend', blendFn);
-    this.rel('blend', valueSnap, {prop: prop});
+    var metaSnap = this.space.snap({
+        simple: true,
+        meta: 'blend',
+        prop: prop
+    });
+    this.link('semantic', metaSnap, valueSnap);
     this.blendCount++;
 };
 
 Snap.prototype.retireOtherBlends = function (prop, time) {
-    var otherBlends = _.filter(this.getRels('blend'), function (r) {
-        return r.meta.prop == prop;
+    var otherBlends = this.getLinks('semantic', function (link) {
+
+        var metaSnap =  link.get(1);
+        return (metaSnap.get('meta') == 'blend') && (metaSnap.get('prop') == prop);
     });
 
     _.each(otherBlends, function (blend) {

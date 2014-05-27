@@ -179,7 +179,7 @@ Snap.prototype.removeRel = function (rel) {
     rel.active = false;
 };
 
-Snap.prototype.broadcastToChildren = function () {
+Snap.prototype.broadcastUpdateImpulse = function () {
     this.broadcast('update');
 };
 
