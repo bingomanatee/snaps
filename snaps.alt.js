@@ -1161,15 +1161,6 @@ function Snap(space, id, props) {
     };
 
     /**
-     * rels (relationships) are collections of pointers to other Snaps.
-     * Some of these include classic 'parent', 'child' relationships --
-     * others can be any sort of internal relationships you may want.
-     *
-     * @type {Array}
-     */
-    this.rels = [];
-
-    /**
      * collection of links that include this snap.
      * @type {Array}
      */
@@ -1186,10 +1177,6 @@ function Snap(space, id, props) {
 
 Snap.prototype.$TYPE = 'SNAP';
 
-Snap.prototype.state = function () {
-    return _.clone(this._props);
-};
-
 Snap.prototype.destroy = function () {
     this.active = false;
     this.unparent();
@@ -1198,7 +1185,6 @@ Snap.prototype.destroy = function () {
     _.each(this.links, function(l){
         l.removeSnap(this, true);
     }, this);
-    this.rels = null;
 };
 
 Snap.prototype.addOutput = function (handler) {
@@ -1207,88 +1193,6 @@ Snap.prototype.addOutput = function (handler) {
     }
 
     this.output.add(handler);
-};
-
-/**
- * reports on pending changes.
- *
- * @param keys {[{String}]} -- optional -- a list of changes to look for
- * @returns {{Object} || false}
- */
-Snap.prototype.pending = function (keys) {
-    if (this.simple) return false;
-    var found = false;
-    if (!keys) {
-        keys = _.keys(this._pendingChanges);
-    }
-    var out = {};
-    for (var i = 0; i < keys.length; ++i) {
-        var k = keys[i];
-        if (this._pendingChanges.hasOwnProperty(k)) {
-            if (this._myProps.hasOwnProperty(k)) {
-                out[k] = {old: this._myProps[k], pending: this._pendingChanges[k], new: false};
-            } else {
-                out[k] = {old: null, pending: this._pendingChanges[k], new: true};
-            }
-            found = true;
-        }
-    }
-    return found ? out : false;
-};
-
-Snap.prototype.hasUpdates = function () {
-    if (arguments.length) {
-        for (var i = 0; i < arguments.length; ++i) {
-            if (this._pendingChanges.hasOwnProperty(arguments[i])) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    //@TODO: replace with check.nonemptyObject
-    for (var p in this._pendingChanges) {
-        return true;
-    }
-    return false;
-};
-
-Snap.prototype.hear = function (message, prop, value) {
-    throw new Error('replaced with impulse API');
-   /*
-    switch (message) {
-        case 'inherit':
-            if (this._myProps.hasOwnProperty(prop)) {
-                return;
-            }
-            this._pendingChanges[prop] = value;
-
-            this.broadcast('inherit', prop, value);
-            break;
-
-        case 'update':
-            if (prop) {
-                if (this.hasUpdates(prop)) {
-                    this.updateProp(prop, true);
-                }
-            } else {
-                if (this.hasUpdates()) {
-                    this.update(true);
-                }
-            }
-    }*/
-};
-
-Snap.prototype.family = function () {
-    throw new Error('deprecated - use #nodeFamily');
-/*    var out = {id: this.id};
-
-    out.children = _.map(this.children(),
-        function (child) {
-            return child.family();
-        });
-
-    return out;*/
 };
 
 /** ordinarily SNAPS is a class that is only created through a space factory.
@@ -1404,24 +1308,6 @@ Snap.prototype.retireOtherBlends = function (prop, time) {
     })
 
 };
-Snap.prototype.removeLink = function (link) {
-    if (!this.links.length) {
-        return;
-    }
-    var linkId = isNaN(link) ? link.id : link;
-
-    this.links = _.reject(this.links, function (link) {
-        return link.id == linkId;
-    })
-};
-
-Snap.prototype.addLink = function (link) {
-    if (!_.find(this.links, function (l) {
-        return l.id == link.id
-    })) {
-        this.links.push(link);
-    }
-};
 
 Snap.prototype.link = function () {
     var args = _.toArray(arguments);
@@ -1435,17 +1321,34 @@ Snap.prototype.link = function () {
     return new SNAPS.Link(this.space, args, linkType);
 };
 
+Snap.prototype.removeLink = function (link) {
+    if (this.simple || (!this.links.length)) {
+        return;
+    }
+    var linkId = isNaN(link) ? link.id : link;
+
+    this.links = _.reject(this.links, function (link) {
+        return link.id == linkId;
+    })
+
+    return this
+};
+
+Snap.prototype.addLink = function (link) {
+    if (!_.find(this.links, function (l) {
+        return l.id == link.id
+    })) {
+        this.links.push(link);
+    }
+};
+
 Snap.prototype.getLinks = function (linkType, filter) {
+    if (this.simple){
+        return [];
+    }
     var self = this;
     return _.filter(this.links, function (l) {
         return (l.linkType == linkType) ? ((filter) ? filter(l, self) : true) : false;
-    });
-};
-
-Snap.prototype.nodeChildNodes = function () {
-    var myId = this.id;
-    return this.getLinks('node', function (n) {
-        return n.ids[0] == myId;
     });
 };
 
@@ -1461,6 +1364,13 @@ Snap.prototype.nodeChildren = function (ids) {
     }, []);
 };
 
+Snap.prototype.nodeChildNodes = function () {
+    var myId = this.id;
+    return this.getLinks('node', function (n) {
+        return n.ids[0] == myId;
+    });
+};
+
 Snap.prototype.hasNodeChildren = function () {
     for (var i = 0; i < this.links.length; ++i) {
         var link = this.links[i];
@@ -1472,7 +1382,7 @@ Snap.prototype.hasNodeChildren = function () {
     return false;
 };
 
-Snap.prototype.nodeSpawn = function (ids) {
+Snap.prototype.nodeSpawn = function () {
     var children = this.nodeChildren();
 
     var leafs = [];
@@ -1534,6 +1444,8 @@ Snap.prototype.nodeFamily = function () {
 
 Snap.prototype.impulse = function (message, linkType, props, meta) {
     SNAPS.impulse(this, message, linkType, props, meta);
+
+    return this;
 };
 
 Snap.prototype.broadcastUpdate = function () {
@@ -1578,13 +1490,19 @@ Snap.prototype.unparent = function () {
             }
         }
     }
+
+    return this;
 };
 
 Snap.prototype.listen = function (message, listener, bindListener) {
+    if (this.simple) throw "Simple Snaps do not receive messages";
+
     if(!this.receptors[message]){
         this.receptors[message] = new signals.Signal();
     }
     this.receptors[message].add(bindListener ? listener.bind(this) : listener);
+
+    return this;
 };
 /**
  * check one or more properties for changes; enact handler when changes happen
@@ -1630,6 +1548,68 @@ Snap.prototype.updateObservers = function () {
     }
 };
 
+Snap.prototype.has = function (prop, my) {
+    return my ? this._myProps.hasOwnProperty(prop) : this._props.hasOwnProperty(prop);
+};
+
+Snap.prototype.set = function (prop, value, immediate) {
+    //@TODO: kill off applicable blends
+    if (this.simple) {
+        this._props[prop] = value;
+        return this;
+    }
+    this._myProps[prop] = value;
+    this._pendingChanges[prop] = value;
+    if (immediate) {
+        this.update();
+    }
+
+    var ch = this.nodeChildren();
+    for (var c = 0; c < ch.length; ++c) {
+        ch[c].inherit(prop, value, immediate);
+    }
+    return this;
+};
+
+Snap.prototype.get = function (prop, pending) {
+    if (pending && (!this.simple)) {
+        if (this._pendingChanges.hasOwnProperty(prop)) {
+            return this._pendingChanges[prop];
+        }
+    }
+    return this._props[prop];
+};
+
+Snap.prototype.inherit = function (prop, value, immediate) {
+    if (this._myProps.hasOwnProperty(prop, 1)) {
+        return;
+    }
+    //@TODO: neutralize non changes?
+    this._pendingChanges[prop] = value;
+    if (immediate) {
+        this.update();
+    }
+
+    var ch = this.nodeChildren();
+    for (var c = 0; c < ch.length; ++c) {
+        ch[c].inherit(prop, value, immediate);
+    }
+    return this;
+};
+
+Snap.prototype.del = function (prop) {
+    this.set(prop, SNAPS.DELETE);
+    return this;
+};
+
+Snap.prototype.setAndUpdate = function (prop, value) {
+    this.set(prop, value);
+    if (!this.simple) {
+        this.update(true);
+    }
+    return this;
+};
+
 Snap.prototype.merge = function (prop, value, combiner) {
     if (!this.has(prop)) {
         return this.set(prop, value);
@@ -1648,86 +1628,77 @@ Snap.prototype.merge = function (prop, value, combiner) {
         }
     } // otherwise, set
 
-    this.set(prop, value);
+    return this.set(prop, value);
+};
+/**
+ * returns a copy fo the current state of the Snaps' properties.
+ *
+ * @returns {Object}
+ */
+Snap.prototype.state = function () {
+    return _.clone(this._props);
+};
+
+
+/**
+ * reports on pending changes.
+ *
+ * @param keys {[{String}]} -- optional -- a list of changes to look for
+ * @returns {{Object} || false}
+ */
+Snap.prototype.pending = function (keys) {
+    if (this.simple) return false;
+    var found = false;
+    if (!keys) {
+        keys = _.keys(this._pendingChanges);
+    }
+    var out = {};
+    for (var i = 0; i < keys.length; ++i) {
+        var k = keys[i];
+        if (this._pendingChanges.hasOwnProperty(k)) {
+            if (this._myProps.hasOwnProperty(k)) {
+                out[k] = {old: this._myProps[k], pending: this._pendingChanges[k], new: false};
+            } else {
+                out[k] = {old: null, pending: this._pendingChanges[k], new: true};
+            }
+            found = true;
+        }
+    }
+    return found ? out : false;
+};
+
+Snap.prototype.hasUpdates = function () {
+    if (arguments.length) {
+        for (var i = 0; i < arguments.length; ++i) {
+            if (this._pendingChanges.hasOwnProperty(arguments[i])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    //@TODO: replace with check.nonemptyObject
+    for (var p in this._pendingChanges) {
+        return true;
+    }
+    return false;
 };
 
 /**
- * applies an update for a single property; only broacasts if that property has an update.
- *
- * @param prop
- * @param broadcast
+ * loads the pending changes into the Snap
+ * @param broadcast {boolean} if true, will also update the Snap's children.
  */
-
-Snap.prototype.updateProp = function (prop, broadcast) {
-    if (this._pendingChanges.hasOwnProperty(prop)) {
-        this._props[prop] = this._pendingChanges[prop];
-        delete(this._pendingChanges[prop]);
-        if (broadcast) {
-            this.broadcast('child', 'update');
-        }
-    }
-};
-
-Snap.prototype.has = function (prop, my) {
-    return my ? this._myProps.hasOwnProperty(prop) : this._props.hasOwnProperty(prop);
-};
-
-Snap.prototype.set = function (prop, value, immediate) {
-    if (this.simple) {
-        this._props[prop] = value;
-        return this;
-    }
-    this._myProps[prop] = value;
-    this._pendingChanges[prop] = value;
-    if (immediate) this.update();
-
-    var ch = this.nodeChildren();
-    for (var c = 0; c < ch.length; ++c){
-        ch[c].inherit(prop, value, immediate);
-    }
-    return this;
-};
-
-Snap.prototype.inherit = function(prop, value, immediate){
-    if (this._myProps.hasOwnProperty(prop, 1)){
-        return;
-    }
-    //@TODO: neutralize non changes?
-    this._pendingChanges[prop] = value;
-    if (immediate ) this.update();
-
-    var ch = this.nodeChildren();
-    for (var c = 0; c < ch.length; ++c){
-        ch[c].inherit(prop, value, immediate);
-    }
-    return this;
-};
-
-Snap.prototype.del = function (prop) {
-    this.set(prop, SNAPS.DELETE);
-    return this;
-};
-
-Snap.prototype.setAndUpdate = function (prop, value) {
-    this.set(prop, value);
-    this.update(true);
-    return this;
-};
-
-Snap.prototype.get = function (prop, pending) {
-    if (pending && (!this.simple)) {
-        if (this._pendingChanges.hasOwnProperty(prop)) {
-            return this._pendingChanges[prop];
-        }
-    }
-    return this._props[prop];
-};
 Snap.prototype.update = function (broadcast) {
     if (this.updated) {
         this.updated.dispatch(broadcast);
     }
 };
 
+/**
+ * the method which actually copies pendingChanges into the current property definitions.
+ * If any changeReceptors are waiting for notices, it broacasts to them.
+ * @type {number}
+ */
 var changeSet = 0;
 Snap.prototype.updateProperties = function () {
     if (this.simple){
@@ -1855,8 +1826,13 @@ Space.prototype.snap = function (input) {
 
 
 Space.prototype.hasSnap = function (snap, onlyIfActive) {
+
     if (typeof snap == 'object'){
-        snap = SNAPS.assert.$TYPE(snap, 'SNAP').id
+        snap = SNAPS.assert.$TYPE(snap, 'SNAP', 'hasSnap passed non-snap');
+        if (snap.space !== this){
+            return false;
+        }
+        snap = snap.id;
     };
 
     if(snap >= this.snaps.length){

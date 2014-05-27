@@ -1,21 +1,3 @@
-Snap.prototype.removeLink = function (link) {
-    if (!this.links.length) {
-        return;
-    }
-    var linkId = isNaN(link) ? link.id : link;
-
-    this.links = _.reject(this.links, function (link) {
-        return link.id == linkId;
-    })
-};
-
-Snap.prototype.addLink = function (link) {
-    if (!_.find(this.links, function (l) {
-        return l.id == link.id
-    })) {
-        this.links.push(link);
-    }
-};
 
 Snap.prototype.link = function () {
     var args = _.toArray(arguments);
@@ -29,17 +11,34 @@ Snap.prototype.link = function () {
     return new SNAPS.Link(this.space, args, linkType);
 };
 
+Snap.prototype.removeLink = function (link) {
+    if (this.simple || (!this.links.length)) {
+        return;
+    }
+    var linkId = isNaN(link) ? link.id : link;
+
+    this.links = _.reject(this.links, function (link) {
+        return link.id == linkId;
+    })
+
+    return this
+};
+
+Snap.prototype.addLink = function (link) {
+    if (!_.find(this.links, function (l) {
+        return l.id == link.id
+    })) {
+        this.links.push(link);
+    }
+};
+
 Snap.prototype.getLinks = function (linkType, filter) {
+    if (this.simple){
+        return [];
+    }
     var self = this;
     return _.filter(this.links, function (l) {
         return (l.linkType == linkType) ? ((filter) ? filter(l, self) : true) : false;
-    });
-};
-
-Snap.prototype.nodeChildNodes = function () {
-    var myId = this.id;
-    return this.getLinks('node', function (n) {
-        return n.ids[0] == myId;
     });
 };
 
@@ -55,6 +54,13 @@ Snap.prototype.nodeChildren = function (ids) {
     }, []);
 };
 
+Snap.prototype.nodeChildNodes = function () {
+    var myId = this.id;
+    return this.getLinks('node', function (n) {
+        return n.ids[0] == myId;
+    });
+};
+
 Snap.prototype.hasNodeChildren = function () {
     for (var i = 0; i < this.links.length; ++i) {
         var link = this.links[i];
@@ -66,7 +72,7 @@ Snap.prototype.hasNodeChildren = function () {
     return false;
 };
 
-Snap.prototype.nodeSpawn = function (ids) {
+Snap.prototype.nodeSpawn = function () {
     var children = this.nodeChildren();
 
     var leafs = [];
@@ -128,6 +134,8 @@ Snap.prototype.nodeFamily = function () {
 
 Snap.prototype.impulse = function (message, linkType, props, meta) {
     SNAPS.impulse(this, message, linkType, props, meta);
+
+    return this;
 };
 
 Snap.prototype.broadcastUpdate = function () {
@@ -172,11 +180,17 @@ Snap.prototype.unparent = function () {
             }
         }
     }
+
+    return this;
 };
 
 Snap.prototype.listen = function (message, listener, bindListener) {
+    if (this.simple) throw "Simple Snaps do not receive messages";
+
     if(!this.receptors[message]){
         this.receptors[message] = new signals.Signal();
     }
     this.receptors[message].add(bindListener ? listener.bind(this) : listener);
+
+    return this;
 };

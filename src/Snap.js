@@ -57,15 +57,6 @@ function Snap(space, id, props) {
     };
 
     /**
-     * rels (relationships) are collections of pointers to other Snaps.
-     * Some of these include classic 'parent', 'child' relationships --
-     * others can be any sort of internal relationships you may want.
-     *
-     * @type {Array}
-     */
-    this.rels = [];
-
-    /**
      * collection of links that include this snap.
      * @type {Array}
      */
@@ -82,10 +73,6 @@ function Snap(space, id, props) {
 
 Snap.prototype.$TYPE = 'SNAP';
 
-Snap.prototype.state = function () {
-    return _.clone(this._props);
-};
-
 Snap.prototype.destroy = function () {
     this.active = false;
     this.unparent();
@@ -94,7 +81,6 @@ Snap.prototype.destroy = function () {
     _.each(this.links, function(l){
         l.removeSnap(this, true);
     }, this);
-    this.rels = null;
 };
 
 Snap.prototype.addOutput = function (handler) {
@@ -103,88 +89,6 @@ Snap.prototype.addOutput = function (handler) {
     }
 
     this.output.add(handler);
-};
-
-/**
- * reports on pending changes.
- *
- * @param keys {[{String}]} -- optional -- a list of changes to look for
- * @returns {{Object} || false}
- */
-Snap.prototype.pending = function (keys) {
-    if (this.simple) return false;
-    var found = false;
-    if (!keys) {
-        keys = _.keys(this._pendingChanges);
-    }
-    var out = {};
-    for (var i = 0; i < keys.length; ++i) {
-        var k = keys[i];
-        if (this._pendingChanges.hasOwnProperty(k)) {
-            if (this._myProps.hasOwnProperty(k)) {
-                out[k] = {old: this._myProps[k], pending: this._pendingChanges[k], new: false};
-            } else {
-                out[k] = {old: null, pending: this._pendingChanges[k], new: true};
-            }
-            found = true;
-        }
-    }
-    return found ? out : false;
-};
-
-Snap.prototype.hasUpdates = function () {
-    if (arguments.length) {
-        for (var i = 0; i < arguments.length; ++i) {
-            if (this._pendingChanges.hasOwnProperty(arguments[i])) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    //@TODO: replace with check.nonemptyObject
-    for (var p in this._pendingChanges) {
-        return true;
-    }
-    return false;
-};
-
-Snap.prototype.hear = function (message, prop, value) {
-    throw new Error('replaced with impulse API');
-   /*
-    switch (message) {
-        case 'inherit':
-            if (this._myProps.hasOwnProperty(prop)) {
-                return;
-            }
-            this._pendingChanges[prop] = value;
-
-            this.broadcast('inherit', prop, value);
-            break;
-
-        case 'update':
-            if (prop) {
-                if (this.hasUpdates(prop)) {
-                    this.updateProp(prop, true);
-                }
-            } else {
-                if (this.hasUpdates()) {
-                    this.update(true);
-                }
-            }
-    }*/
-};
-
-Snap.prototype.family = function () {
-    throw new Error('deprecated - use #nodeFamily');
-/*    var out = {id: this.id};
-
-    out.children = _.map(this.children(),
-        function (child) {
-            return child.family();
-        });
-
-    return out;*/
 };
 
 /** ordinarily SNAPS is a class that is only created through a space factory.

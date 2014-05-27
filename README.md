@@ -60,6 +60,15 @@ the pending updates
 
 Thus, snaps is an "eventual consistency" model in which transactions are cached at the snap level and locked in in parallel.
 
+## Inheritance
+
+When Snaps are linked by nodes into a parent child tree, any changes to a property are also written into its' child Snap properties.
+However setting a Snaps' property directly protects it from inherited property changes. That is, you only inherit a property
+if your property has not been directly set through `set(...)`. &ast;
+
+The inheritance property reflects the inheritance style of CSS, where a DomElement's property reflects that of its parents
+unless its value has been set to a specific value. (see example below)
+
 ## Observers
 
 Snaps may have watchers that observe updates to the Snap. A snap's Observers' handlers are called under one of the following
@@ -116,3 +125,26 @@ I use the following dependent libraries to drive Snaps.
 * **famous-generator** for building examples (and then I gut out the famo.us bits)
 * **Mocha** for testing
 * **WebStorm** (my IDE) for CI and general awesomeness (Grunt launching, test running).
+
+-------------
+
+Example: inheritance
+
+
+### example
+
+```
+snap 1: {x: 1, y: 2} : _my_props: {x: 1, y: 2}
+  child: snap 2 {x: 2, y: 2} :  _my_props: {x: 2}
+     child: snap 3 {x: 2, y: 2}  : _my_props: {}
+```
+1. if snap 1.set(y, 3) is called, then the y value of the entire family is set to 3 through inheritance
+2. if (snap1.set(x, 3) is called:
+
+    * snap 1's x value is set (to update to) 3.
+    * snap 2's x value stays at 2, as its x property has been set directly, in the past.
+    * snap 3's x property is not changed, as the update signal never gets past its parent, Snap 2.
+
+-------------
+&ast; (this is because directly setting a property
+      creates a memo in my_props which records when a Snap's property has been directly changed from the outside.)

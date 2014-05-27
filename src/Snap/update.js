@@ -1,9 +1,63 @@
+
+/**
+ * reports on pending changes.
+ *
+ * @param keys {[{String}]} -- optional -- a list of changes to look for
+ * @returns {{Object} || false}
+ */
+Snap.prototype.pending = function (keys) {
+    if (this.simple) return false;
+    var found = false;
+    if (!keys) {
+        keys = _.keys(this._pendingChanges);
+    }
+    var out = {};
+    for (var i = 0; i < keys.length; ++i) {
+        var k = keys[i];
+        if (this._pendingChanges.hasOwnProperty(k)) {
+            if (this._myProps.hasOwnProperty(k)) {
+                out[k] = {old: this._myProps[k], pending: this._pendingChanges[k], new: false};
+            } else {
+                out[k] = {old: null, pending: this._pendingChanges[k], new: true};
+            }
+            found = true;
+        }
+    }
+    return found ? out : false;
+};
+
+Snap.prototype.hasUpdates = function () {
+    if (arguments.length) {
+        for (var i = 0; i < arguments.length; ++i) {
+            if (this._pendingChanges.hasOwnProperty(arguments[i])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    //@TODO: replace with check.nonemptyObject
+    for (var p in this._pendingChanges) {
+        return true;
+    }
+    return false;
+};
+
+/**
+ * loads the pending changes into the Snap
+ * @param broadcast {boolean} if true, will also update the Snap's children.
+ */
 Snap.prototype.update = function (broadcast) {
     if (this.updated) {
         this.updated.dispatch(broadcast);
     }
 };
 
+/**
+ * the method which actually copies pendingChanges into the current property definitions.
+ * If any changeReceptors are waiting for notices, it broacasts to them.
+ * @type {number}
+ */
 var changeSet = 0;
 Snap.prototype.updateProperties = function () {
     if (this.simple){

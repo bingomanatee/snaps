@@ -66,8 +66,13 @@ Space.prototype.snap = function (input) {
 
 
 Space.prototype.hasSnap = function (snap, onlyIfActive) {
+
     if (typeof snap == 'object'){
-        snap = SNAPS.assert.$TYPE(snap, 'SNAP').id
+        snap = SNAPS.assert.$TYPE(snap, 'SNAP', 'hasSnap passed non-snap');
+        if (snap.space !== this){
+            return false;
+        }
+        snap = snap.id;
     };
 
     if(snap >= this.snaps.length){
