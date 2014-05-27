@@ -17,23 +17,28 @@ Snaps can have multiple, deep relationships. Any sort of relationships can be cr
 * one to many (one id --> id collections)
 * many to many (id collections)
 * semantic (id --> annotation --> id)
+* graph (id <-----> id)
 
 This is handy for instance if you want to have wolf snaps watching sheep snaps or create collections of snaps.
 
 # Why SNAPS?
 
-This is a response to the modelling in Famo.us; Famo.us's modelling is very literal and obfuscated; each
-property is modelled with a custom, dirtified property and this makes state tracking and changing messy and
-difficult to follow. Also testing is nonexistent.
-
+This is a response to the modelling in Famo.us; Famo.us's modelling is very literal and obfuscated with a lot of repeated
+code; each property is considered a special case, managed with a unique, dirtified property
+and this makes state tracking and changing messy and difficult to follow. Also testing is nonexistent.
 Also fundamental concepts like removing nodes is left out making basic activity very difficult to replicate.
 
-Lastly, I wanted a situation in which some operations of a network can be exported to web workers, networked
+SNAPS has a clear pattern of relationships using linked Snaps instances, and treats the problem of dirty properties
+and property states using universal and consistent logic. It also draws a clear line between the event and property
+system and the rendering method, making it very easy to extend Snaps' management system to any rendering system you please.
+It allows for modifying and animating any and all properties of DOM elements and element styles putting you in complete
+control of the rendered output.
+
+Lastly, I wanted a codebase in which some operations of a network can be exported to web workers, networked
 processes, etc., with the results of updates being exported in a complete set to the rendering layer.
 
 Most importantly, I wanted to capture a set of behaviors whose coincidence is very common --
-relationships, inheritance, and state changes --
-in a module that could be used in multiple contexts.
+relationships, inheritance, and state changes -- in a module that could be used in multiple contexts.
 
 # Base Framework
 
