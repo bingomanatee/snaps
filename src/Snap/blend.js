@@ -44,6 +44,7 @@ Snap.prototype.updateBlends = function () {
         if (blendValues[b].length != 1) {
             console.log('multiple blends for ' + b, this.id);
         }
+        console.log('setting ', b, 'to', blendValues[b][0]);
         this.set(b, blendValues[b][0]);
     }
 

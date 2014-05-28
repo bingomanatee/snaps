@@ -68,21 +68,24 @@ SNAPS.BrowserDom = function (space, props) {
 
 SNAPS.BrowserDom.prototype.$TYPE = 'BROWSERDOM';
 
-function _styleSnapChanges(eleSnap) {
-    for (var p in eleSnap.lastChanges) {
-        var value = eleSnap.lastChanges[p].pending;
+function _styleSnapChanges() {
+    var changes = this.styleSnap.lastChanges;
+    //console.log('style changes: ', changes);
+    for (var p in changes) {
+        var value = this.styleSnap.get(p);
 
         if (value === SNAPS.DELETE) {
             this.element.style.removeProperty(p);
         } else {
+            console.log('setting dom ', p, 'to', value);
             this.s(p, value);
         }
     }
 }
 
-function _attrSnapChanges(attrSnap) {
-    for (var p in attrSnap.lastChanges) {
-        var value = attrSnap.lastChanges[p].pending;
+function _attrSnapChanges() {
+    for (var p in this.attrSnap.lastChanges) {
+        var value = this.attrSnap.lastChanges[p].pending;
 
         if (value === SNAPS.DELETE) {
             this.element.removeAttribute(p);
@@ -93,9 +96,8 @@ function _attrSnapChanges(attrSnap) {
 }
 
 SNAPS.BrowserDom.prototype.initOutput = function () {
-
-    this.attrSnap.addOutput(_attrSnapChanges.bind(this));
-    this.styleSnap.addOutput(_styleSnapChanges.bind(this));
+    this.attrSnap.listen('output', _attrSnapChanges, this);
+    this.styleSnap.listen('output', _styleSnapChanges, this);
 };
 
 SNAPS.BrowserDom.prototype.set = function (prop, value) {

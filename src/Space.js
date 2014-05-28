@@ -150,22 +150,26 @@ Space.prototype.update = function (next) {
     var i;
     var snap;
 
+    var updatedSnaps = [];
+
     var l = this.snaps.length;
 
     for (i = 0; i < l; ++i) {
         snap = this.snaps[i];
-        if (snap.active) {
+        if (snap.active && (!snap.simple)) {
+            if (snap.hasPendingChanges() || snap.blendCount > 0){
+              //  console.log('queueing for update: ', snap);
+                updatedSnaps.push(snap);
+            }
             snap.update(null, currentEd);
         }
     }
 
-    l = this.snaps.length;
+    l = updatedSnaps.length;
 
     for (i = 0; i < l; ++i) {
-        snap = this.snaps[i];
-        if (snap.active && snap.output) {
-            snap.output.dispatch(snap, this, this.time);
-        }
+        snap = updatedSnaps[i];
+        snap.dispatch('output');
     }
 
     this.endEdition(currentEd);

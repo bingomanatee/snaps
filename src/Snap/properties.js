@@ -39,6 +39,8 @@ Snap.prototype.internalUpdate = function (prop, value) {
     var oldValue = this._props[prop];
     this._props[prop] = value;
 
+    delete this._pendingChanges[prop];
+
     if (this.changeReceptors.hasOwnProperty(prop)) {
         //@TODO: changeReceptors should be Termianl
         this.changeReceptors[prop].dispatch(

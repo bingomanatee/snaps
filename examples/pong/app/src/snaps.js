@@ -1091,21 +1091,24 @@ SNAPS.BrowserDom = function (space, props) {
 
 SNAPS.BrowserDom.prototype.$TYPE = 'BROWSERDOM';
 
-function _styleSnapChanges(eleSnap) {
-    for (var p in eleSnap.lastChanges) {
-        var value = eleSnap.lastChanges[p].pending;
+function _styleSnapChanges() {
+    var changes = this.styleSnap.lastChanges;
+    //console.log('style changes: ', changes);
+    for (var p in changes) {
+        var value = this.styleSnap.get(p);
 
         if (value === SNAPS.DELETE) {
             this.element.style.removeProperty(p);
         } else {
+            console.log('setting dom ', p, 'to', value);
             this.s(p, value);
         }
     }
 }
 
-function _attrSnapChanges(attrSnap) {
-    for (var p in attrSnap.lastChanges) {
-        var value = attrSnap.lastChanges[p].pending;
+function _attrSnapChanges() {
+    for (var p in this.attrSnap.lastChanges) {
+        var value = this.attrSnap.lastChanges[p].pending;
 
         if (value === SNAPS.DELETE) {
             this.element.removeAttribute(p);
@@ -1116,9 +1119,8 @@ function _attrSnapChanges(attrSnap) {
 }
 
 SNAPS.BrowserDom.prototype.initOutput = function () {
-
-    this.attrSnap.addOutput(_attrSnapChanges.bind(this));
-    this.styleSnap.addOutput(_styleSnapChanges.bind(this));
+    this.attrSnap.listen('output', _attrSnapChanges, this);
+    this.styleSnap.listen('output', _styleSnapChanges, this);
 };
 
 SNAPS.BrowserDom.prototype.set = function (prop, value) {
@@ -1141,6 +1143,7 @@ SNAPS.BrowserDom.prototype.destroy = function (prop, value) {
         this.dataSnap.destroy();
     }
 };
+
 SNAPS.BrowserDom.prototype.addElement = function (parent) {
     if (!parent) {
         parent = document.body;
@@ -1386,6 +1389,7 @@ Snap.prototype.updateBlends = function () {
         if (blendValues[b].length != 1) {
             console.log('multiple blends for ' + b, this.id);
         }
+        console.log('setting ', b, 'to', blendValues[b][0]);
         this.set(b, blendValues[b][0]);
     }
 
@@ -1442,6 +1446,7 @@ Snap.prototype.retireOtherBlends = function (prop, time) {
     })
 
 };
+
 
 Snap.prototype.link = function () {
     var args = _.toArray(arguments);
@@ -1704,6 +1709,8 @@ Snap.prototype.internalUpdate = function (prop, value) {
     var isNew = !this._props.hasOwnProperty(prop);
     var oldValue = this._props[prop];
     this._props[prop] = value;
+
+    delete this._pendingChanges[prop];
 
     if (this.changeReceptors.hasOwnProperty(prop)) {
         //@TODO: changeReceptors should be Termianl
@@ -2097,22 +2104,26 @@ Space.prototype.update = function (next) {
     var i;
     var snap;
 
+    var updatedSnaps = [];
+
     var l = this.snaps.length;
 
     for (i = 0; i < l; ++i) {
         snap = this.snaps[i];
-        if (snap.active) {
+        if (snap.active && (!snap.simple)) {
+            if (snap.hasPendingChanges() || snap.blendCount > 0){
+              //  console.log('queueing for update: ', snap);
+                updatedSnaps.push(snap);
+            }
             snap.update(null, currentEd);
         }
     }
 
-    l = this.snaps.length;
+    l = updatedSnaps.length;
 
     for (i = 0; i < l; ++i) {
-        snap = this.snaps[i];
-        if (snap.active && snap.output) {
-            snap.output.dispatch(snap, this, this.time);
-        }
+        snap = updatedSnaps[i];
+        snap.dispatch('output');
     }
 
     this.endEdition(currentEd);
@@ -2121,6 +2132,7 @@ Space.prototype.update = function (next) {
 SNAPS.space = function () {
     return new Space();
 };
+
     
         return SNAPS;
     
