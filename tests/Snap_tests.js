@@ -183,7 +183,7 @@ describe('SNAPS', function () {
         });
 
         describe('observers', function () {
-            describe.only('change watcher', function () {
+            describe('change watcher', function () {
                 var space;
                 var snap;
 
@@ -410,7 +410,31 @@ describe('SNAPS', function () {
 
             })
 
-        })
+        });
+
+        describe('updating', function(){
+            var space;
+            var snap;
+
+            before(function(){
+                space = SNAPS.space();
+                snap = space.snap();
+            });
+
+            it('should only have pendingUpdates once', function(){
+
+                snap.hasPendingChanges().should.eql(false);
+                snap.update();
+                snap.hasPendingChanges().should.eql(false);
+                snap.set('foo', 1);
+                snap.hasPendingChanges().should.eql(true);
+                snap.update();
+                snap.hasPendingChanges().should.eql(false);
+
+            });
+
+
+        });
     });
 
 });
