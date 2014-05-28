@@ -1664,12 +1664,10 @@ Snap.prototype.set = function (prop, value, immediate) {
     this._myProps[prop] = value;
 
     if (this.space.editionStarted > this.space.editionCompleted) {
-        immediate = true;
-    }
-
-    if (immediate) {
+        this.internalUpdate(prop, value);
+    } else if (immediate) {
         this._props[prop] = value;
-    } else{
+    } else {
         this._pendingChanges[prop] = value;
     }
 
@@ -1689,18 +1687,34 @@ Snap.prototype.get = function (prop, pending) {
     return this._props[prop];
 };
 
+Snap.prototype.internalUpdate = function (prop, value) {
+    var isNew = !this._props.hasOwnProperty(prop);
+    var oldValue = this._props[prop];
+    this._props[prop] = value;
+
+    if (this.changeReceptors.hasOwnProperty(prop)) {
+        //@TODO: changeReceptors should be Termianl
+        this.changeReceptors[prop].dispatch(
+            value,
+            oldValue,
+            isNew,
+            null,
+            null);
+    }
+    this._props[prop] = value;
+};
+
 Snap.prototype.inherit = function (prop, value, immediate) {
     if (this._myProps.hasOwnProperty(prop)) {
         return;
     }
 
     if (this.space.editionStarted > this.space.editionCompleted) {
-        immediate = true;
-    }
+        this.internalUpdate(prop, value);
 
-    if (immediate) {
+    } else if (immediate) {
         this._props[prop] = value;
-    } else{
+    } else {
         this._pendingChanges[prop] = value;
     }
 
