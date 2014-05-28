@@ -24,6 +24,125 @@ else if(typeof define === 'function' && define.amd) {
 
     }
 };
+/**
+ * This is a router for signals;
+ * as Signal is not designed to filter messages by type
+ * the Terminal does this for a suite of signals.
+ */
+
+function Terminal(initial, locked) {
+    this.receptor = {};
+    this.locked = false;
+    if (initial) {
+        for (var what in initial) {
+            var handlers = initial[what];
+            if (typeof handlers == 'function') {
+                this.listen(what, handlers);
+            } else {
+                handlers = SNAPS.assert.array(handlers);
+                for (var h = 0; h < handlers.length; ++h) {
+                    this.listen(what, handlers[h]);
+                }
+            }
+        }
+    }
+    if (locked) {
+        this.locked = locked;
+    }
+}
+
+Terminal.prototype.profile = function () {
+    return {locked: this.locked || [],
+        listeners: _.map(this.receptor, function (signal, what) {
+            return {
+                event: what,
+                handlers: signal._bindings.length,
+                active: signal.active
+            }
+        })
+    }
+};
+
+Terminal.prototype.setActive = function (what, isActive) {
+    if (arguments.length < 2) {
+        isActive = true;
+    }
+
+    if (this.receptor[what]) {
+        this.receptor[what].active = isActive;
+    }
+};
+
+Terminal.prototype.listenOnce = function () {
+    var args = _.toArray(arguments);
+    var what = SNAPS.assert.notempty(args.shift(), 'string');
+    this.checkWhat(what, true);
+
+    if (!this.receptor[what]) {
+        this.receptor[what] = new signals.Signal();
+    }
+
+    if (check.array(args[0])) {
+        this.receptor[what].addOnce.apply(this.receptor[what], args[0]);
+    } else {
+        this.receptor[what].addOnce.apply(this.receptor[what], args);
+    }
+};
+
+Terminal.prototype.checkWhat = function (what, doErr) {
+
+    if (this.locked && (this.locked.length)) {
+        for (var l = 0; l < this.locked.length; ++l) {
+            if (what == this.locked[l]) {
+                if (doErr) {
+                    throw new Error('attempt to add listener to Terminal with locked listener ' + what);
+                } else {
+                    return false;
+                }
+            }
+        }
+    }
+    return this.receptor[what] ? this.receptor[what]._bindings.length : 0;
+};
+
+Terminal.prototype.listen = function () {
+    var args = _.toArray(arguments);
+    var what = SNAPS.assert.notempty(args.shift(), 'string');
+
+    this.checkWhat(what, true);
+
+    if (!this.receptor[what]) {
+        this.receptor[what] = new signals.Signal();
+    }
+
+    if (check.array(args[0])) {
+        this.receptor[what].add.apply(this.receptor[what], args[0]);
+    } else {
+        this.receptor[what].add.apply(this.receptor[what], args);
+    }
+
+};
+
+Terminal.prototype.dispatch = function () {
+    var args = _.toArray(arguments);
+    var what = SNAPS.assert.notempty(args.shift(), 'string');
+
+    if (this.receptor[what]) {
+        if (this.receptor[what].active) {
+            if(this.receptor[what]._bindings.length > 0){
+                return this.receptor[what].dispatch.apply(this.receptor[what], args);
+            } else {
+                return 'no bindings';
+            }
+        } else {
+            return 'inactive signal';
+        }
+    } else {
+        return 'no signal';
+    }
+};
+
+SNAPS.Terminal = Terminal;
 
 /**
  * taken from node module check-types
@@ -334,9 +453,21 @@ SNAPS.assert = {
                 throw "cannot understand size type " + typeName;
         }
         return item;
+    },
+
+    toId: function (item, iType) {
+        if (check.object(item)) {
+            if (!item.$TYPE) {
+                throw new Error('untyped object passed into toId');
+            } else if (item.$TYPE == iType) {
+                return item.id;
+            } else {
+                throw new Error('wrong type passed into toId: ' + item.$TYPE);
+            }
+        } else if (check.verify.intNumber(item, 'non-object, non-int passed into toId')){
+            return item;
+        }
     }
-
-
 };
 
 var linkId = 0;
@@ -645,8 +776,19 @@ SNAPS.Link.prototype.impulse = function (impulse) {
 
 };
 
+/**
+ * Impulse sends the same message to a set of snaps' terminals.
+ * By default it sends messages down the family tree
+ * but it can be trained to follow other link patterns.
+ *
+ * @param origin {Snap | Link} the sending root of the message; will not receive the message.
+ * @param message {string}
+ * @param linkType {String} default = 'node';
+ * @param props {Object} configures communication pattern of Impulse;
+ * @param meta {variant} optional -- content of message.
+ */
+
 SNAPS.impulse = function (origin, message, linkType, props, meta) {
-    console.log('impulse: origin %s %s, message:%s, type: %s', origin.$TYPE, origin.id, message, linkType);
 
     linkType = linkType || 'node';
     var heardSnapIds = [];
@@ -714,25 +856,19 @@ SNAPS.impulse = function (origin, message, linkType, props, meta) {
         links = [];
 
         snaps = _.uniq(snaps);
-       // console.log('------ snaps run ---------');
-       // console.log(_.pluck(snaps, 'id').join('  '));
         for (var s = 0; s < snaps.length; ++s) {
             var snap = snaps[s];
             var sHeard = false;
-          //  console.log('HEARD SNAPS --------- checking for %s in %s', snap.id, heardSnapIds.join(','))
             for (var sh = 0; (!sHeard) && sh < heardSnapIds.length; ++sh) {
                 sHeard = (heardSnapIds[sh] == snap.id);
-             //   if (sHeard) console.log('.... found');
             }
             heardSnapIds.push(snap.id);
 
             if ( !snap.active || snap.simple || (snapFilter && !snapFilter(snap))) {
-           //     console.log('.... not emitting for %s', snap.id);
                 continue;
             }
-            if ((!sHeard) && snap.receptors[message]) {
-          //      console.log('==== dispatching for %s', snap.id);
-                snap.receptors[message].dispatch(meta);
+            if (!sHeard) {
+                snap.dispatch(message, meta);
             }
             switch (linkType) {
                 case 'semantic':
@@ -1156,9 +1292,7 @@ function Snap(space, id, props) {
 
     this.changeReceptors = {};
 
-    this.receptors = {
-        inherit: new signals.Signal()
-    };
+    this.terminal = new Terminal({inherit: [[this.inherit, this]]});
 
     /**
      * collection of links that include this snap.
@@ -1448,13 +1582,6 @@ Snap.prototype.impulse = function (message, linkType, props, meta) {
     return this;
 };
 
-Snap.prototype.broadcastUpdate = function () {
-    var children = this.nodeChildren();
-    for (var c = 0; c < children.length; ++c) {
-        children[c].update(true);
-    }
-};
-
 /**
  * prepare this snap to be destroyed;
  * links all the children of this snap to its parent(s) if any
@@ -1490,17 +1617,6 @@ Snap.prototype.unparent = function () {
             }
         }
     }
-
-    return this;
-};
-
-Snap.prototype.listen = function (message, listener, bindListener) {
-    if (this.simple) throw "Simple Snaps do not receive messages";
-
-    if(!this.receptors[message]){
-        this.receptors[message] = new signals.Signal();
-    }
-    this.receptors[message].add(bindListener ? listener.bind(this) : listener);
 
     return this;
 };
@@ -1559,9 +1675,15 @@ Snap.prototype.set = function (prop, value, immediate) {
         return this;
     }
     this._myProps[prop] = value;
-    this._pendingChanges[prop] = value;
+
+    if (this.space.editionStarted > this.space.editionCompleted) {
+        immediate = true;
+    }
+
     if (immediate) {
-        this.update();
+        this._props[prop] = value;
+    } else{
+        this._pendingChanges[prop] = value;
     }
 
     var ch = this.nodeChildren();
@@ -1581,13 +1703,18 @@ Snap.prototype.get = function (prop, pending) {
 };
 
 Snap.prototype.inherit = function (prop, value, immediate) {
-    if (this._myProps.hasOwnProperty(prop, 1)) {
+    if (this._myProps.hasOwnProperty(prop)) {
         return;
     }
-    //@TODO: neutralize non changes?
-    this._pendingChanges[prop] = value;
+
+    if (this.space.editionStarted > this.space.editionCompleted) {
+        immediate = true;
+    }
+
     if (immediate) {
-        this.update();
+        this._props[prop] = value;
+    } else{
+        this._pendingChanges[prop] = value;
     }
 
     var ch = this.nodeChildren();
@@ -1639,7 +1766,25 @@ Snap.prototype.state = function () {
     return _.clone(this._props);
 };
 
+Snap.prototype.listen = function () {
+    if (this.simple) {
+        throw "Simple Snaps do not receive messages";
+    }
 
+    var args = _.toArray(arguments);
+
+    this.terminal.listen.apply(this.terminal, args);
+
+    return this;
+};
+
+Snap.prototype.dispatch = function (message) {
+    if (this.simple) {
+        throw new Error('attempt to dispatch ' + message + ' to a simple snap');
+    }
+    var args = _.toArray(arguments);
+    this.terminal.dispatch.apply(this.terminal, args);
+};
 /**
  * reports on pending changes.
  *
@@ -1647,7 +1792,9 @@ Snap.prototype.state = function () {
  * @returns {{Object} || false}
  */
 Snap.prototype.pending = function (keys) {
-    if (this.simple) return false;
+    if (this.simple) {
+        return false;
+    }
     var found = false;
     if (!keys) {
         keys = _.keys(this._pendingChanges);
@@ -1667,7 +1814,13 @@ Snap.prototype.pending = function (keys) {
     return found ? out : false;
 };
 
-Snap.prototype.hasUpdates = function () {
+/**
+ * will check to see if specific fields have changes
+ * if field names passed as arguments
+ *
+ * @returns {*}
+ */
+Snap.prototype.hasPendingChanges = function () {
     if (arguments.length) {
         for (var i = 0; i < arguments.length; ++i) {
             if (this._pendingChanges.hasOwnProperty(arguments[i])) {
@@ -1677,21 +1830,34 @@ Snap.prototype.hasUpdates = function () {
         return false;
     }
 
-    //@TODO: replace with check.nonemptyObject
-    for (var p in this._pendingChanges) {
-        return true;
-    }
-    return false;
+    return check.not.emptyObject(this._pendingChanges);
 };
 
 /**
  * loads the pending changes into the Snap
  * @param broadcast {boolean} if true, will also update the Snap's children.
+ * @param edition {int} the current update cycle; if called in a Space.update cycle will be provided
  */
-Snap.prototype.update = function (broadcast) {
-    if (this.updated) {
-        this.updated.dispatch(broadcast);
+Snap.prototype.update = function (broadcast, edition) {
+
+    var localUpdate = false;
+    if (!edition) {
+        localUpdate = true;
+        if (this.space.isUpdating()) {
+            console.log('attempt to restart a space\'s update cycle');
+            return;
+        } else {
+            edition = this.space.startEdition(this.id);
+        }
     }
+
+    this.dispatch('updated', broadcast, edition);
+
+    if (localUpdate) {
+        this.space.endEdition(edition);
+    }
+
+    return this;
 };
 
 /**
@@ -1700,16 +1866,17 @@ Snap.prototype.update = function (broadcast) {
  * @type {number}
  */
 var changeSet = 0;
-Snap.prototype.updateProperties = function () {
-    if (this.simple){
+_updateProperties = function () {
+    if (this.simple) {
         return;
     }
     _.extend(this._props, this._pendingChanges);
     var pending = this.pending();
-    if (pending){
+    if (pending) {
         ++changeSet;
-        for (var p in pending){
-            if (this.changeReceptors.hasOwnProperty(p)){
+        for (var p in pending) {
+            if (this.changeReceptors.hasOwnProperty(p)) {
+                //@TODO: changeReceptors should be Termianl
                 this.changeReceptors[p].dispatch(
                     pending[p].pending,
                     pending[p].old,
@@ -1722,46 +1889,57 @@ Snap.prototype.updateProperties = function () {
 
     this.lastChanges = pending;
     this._pendingChanges = {};
-};
-
-Snap.prototype.updatePhysics = function () {
-    var changes = {};
-};
-
-Snap.prototype.cleanupDeleted = function () {
     SNAPS.cleanObj(this._props);
     SNAPS.cleanObj(this._myProps);
 };
 
+_updatePhysics = function () {
+    var changes = {};
+};
+
 Snap.prototype.initUpdated = function () {
-
-    this.updated = new signals.Signal();
-
-    /**
-     * disable unneeded handlers
-     */
-    this.updated.add(function (broadcast) {
+    this.listen('updated', function (broadcast, edition) {
         if (!this.active) {
             return false;
         }
-        doBlendsBinding.active = (this.blendCount > 0);
-        //  doUpdatePhysicsBinding.active = (this.physicsCount > 0);
-        doUpdateObserversBinding.active = (this.observers.length);
-        doBroadcastUpdateBinding.active = !!broadcast;
-    }.bind(this));
+        if (this.blendCount > 0) {
+            this.terminal.receptor.updateBlends.dispatch(broadcast, edition);
+        }
+        if (this.physicsCount > 0) {
+            this.terminal.receptor.updatePhysics.dispatch(broadcast, edition);
+        }
 
-    var doBlendsBinding = this.updated.add(this.updateBlends.bind(this));
-    // var doUpdatePhysicsBinding = this.updated.add(this.updatePhysics.bind(this));
-    var doUpdateObserversBinding = this.updated.add(this.updateObservers.bind(this));
-    var doChangesBinding = this.updated.add(this.updateProperties.bind(this));
-    var doCleanupBinding = this.updated.add(this.cleanupDeleted.bind(this));
-    var doBroadcastUpdateBinding = this.updated.add(this.broadcastUpdate.bind(this));
+        if (this.observers.length) {
+            this.terminal.receptor.updateObservers.dispatch(broadcast, edition);
+        }
+
+        if (check.not.emptyObject(this._pendingChanges)) {
+            this.terminal.receptor.updateProperties.dispatch(broadcast, edition);
+        }
+
+        if (broadcast) {
+            var children = this.nodeChildren();
+            for (var c = 0; c < children.length; ++c) {
+                children[c].update(broadcast, edition);
+            }
+        }
+    }, this);
+
+    this.listen('updateBlends', this.updateBlends, this);
+    this.listen('updatePhysics', _updatePhysics, this);
+    this.listen('updateObservers', this.updateObservers, this);
+    this.listen('updateProperties', _updateProperties, this);
 
 };
 var Space = function () {
     this.id = 1;
     this.snaps = [];
     this.resetTime();
+    this.edition = 0;
+    this.editionStarted = 0;
+    this.editionCompleted = 0;
+    this.benchmarking = false;
+    this.benchmarks = [];
 };
 
 Space.prototype.$TYPE = 'SPACE';
@@ -1780,14 +1958,14 @@ Space.prototype.setTime = function (n) {
     return this;
 };
 
-Space.prototype.addLink = function(id, link){
-    if (this.snaps[id] && (!this.snaps[id].simple)){
+Space.prototype.addLink = function (id, link) {
+    if (this.snaps[id] && (!this.snaps[id].simple)) {
         this.snaps[id].addLink(link);
     }
 };
-Space.prototype.removeLink = function(link){
-    _.each(link.ids, function(id){
-        if (this.snaps[id] && (!this.snaps[id].simple)){
+Space.prototype.removeLink = function (link) {
+    _.each(link.ids, function (id) {
+        if (this.snaps[id] && (!this.snaps[id].simple)) {
             this.snaps[id].removeLink(link);
         }
     }, this);
@@ -1824,27 +2002,25 @@ Space.prototype.snap = function (input) {
     return snap;
 };
 
-
 Space.prototype.hasSnap = function (snap, onlyIfActive) {
 
-    if (typeof snap == 'object'){
-        snap = SNAPS.assert.$TYPE(snap, 'SNAP', 'hasSnap passed non-snap');
-        if (snap.space !== this){
+    if (typeof snap == 'object') {
+        if (snap.space !== this) {
             return false;
         }
-        snap = snap.id;
-    };
+    }
+    var id = SNAPS.assert.toId(snap, 'SNAP');
 
-    if(snap >= this.snaps.length){
+    if (id >= this.snaps.length) {
+        console.log('unregistered snap detected: %s', snap);
         return false;
     }
     if (onlyIfActive) {
-        return this.snaps[snap].active;
+        return this.snaps[id].active;
     } else {
         return true;
     }
 };
-
 
 Space.prototype.bd = function (props, ele, parent) {
     props = SNAPS.assert.or('object', props, {});
@@ -1863,10 +2039,46 @@ Space.prototype.nextTime = function () {
     return this.time;
 };
 
+Space.prototype.isUpdating = function () {
+    return this.editionStarted > this.editionCompleted;
+};
+
+Space.prototype.startEdition = function (requestor) {
+    if (this.benchmarking){
+        var t = new Date().getTime();
+        var data = [requestor, t, t - this.startTime, this.time];
+    }
+
+    if (this.isUpdating()){
+        throw new Error('attempting to start an edition during the updating cycle');
+    }
+
+     this.editionStarted = ++this.edition;
+    if (this.benchmarking){
+        this.benchmarks[this.edition] = data;
+    }
+
+    return this.editionStarted;
+};
+
+Space.prototype.endEdition = function (currentEd) {
+    if (currentEd != this.editionStarted){
+        console.log('edition versions mismatch at endEdition: %s, %s', currentEd, this.editionStarted);
+        return;
+    }
+    this.editionCompleted = this.editionStarted;
+    if (this.benchmarking){
+        var t = new Date().getTime();
+        this.benchmarks[this.editionStarted].push(t, t - this.startTime);
+    }
+};
+
 Space.prototype.update = function (next) {
     if (next) {
         this.nextTime();
     }
+
+    var currentEd = this.startEdition();
 
     var i;
     var snap;
@@ -1876,7 +2088,7 @@ Space.prototype.update = function (next) {
     for (i = 0; i < l; ++i) {
         snap = this.snaps[i];
         if (snap.active) {
-            snap.update();
+            snap.update(null, currentEd);
         }
     }
 
@@ -1889,6 +2101,7 @@ Space.prototype.update = function (next) {
         }
     }
 
+    this.endEdition(currentEd);
 };
 
 SNAPS.space = function () {

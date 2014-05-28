@@ -52,9 +52,7 @@ function Snap(space, id, props) {
 
     this.changeReceptors = {};
 
-    this.receptors = {
-        inherit: new signals.Signal()
-    };
+    this.terminal = new Terminal({inherit: [[this.inherit, this]]});
 
     /**
      * collection of links that include this snap.

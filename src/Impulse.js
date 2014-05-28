@@ -1,5 +1,16 @@
+/**
+ * Impulse sends the same message to a set of snaps' terminals.
+ * By default it sends messages down the family tree
+ * but it can be trained to follow other link patterns.
+ *
+ * @param origin {Snap | Link} the sending root of the message; will not receive the message.
+ * @param message {string}
+ * @param linkType {String} default = 'node';
+ * @param props {Object} configures communication pattern of Impulse;
+ * @param meta {variant} optional -- content of message.
+ */
+
 SNAPS.impulse = function (origin, message, linkType, props, meta) {
-    console.log('impulse: origin %s %s, message:%s, type: %s', origin.$TYPE, origin.id, message, linkType);
 
     linkType = linkType || 'node';
     var heardSnapIds = [];
@@ -67,25 +78,19 @@ SNAPS.impulse = function (origin, message, linkType, props, meta) {
         links = [];
 
         snaps = _.uniq(snaps);
-       // console.log('------ snaps run ---------');
-       // console.log(_.pluck(snaps, 'id').join('  '));
         for (var s = 0; s < snaps.length; ++s) {
             var snap = snaps[s];
             var sHeard = false;
-          //  console.log('HEARD SNAPS --------- checking for %s in %s', snap.id, heardSnapIds.join(','))
             for (var sh = 0; (!sHeard) && sh < heardSnapIds.length; ++sh) {
                 sHeard = (heardSnapIds[sh] == snap.id);
-             //   if (sHeard) console.log('.... found');
             }
             heardSnapIds.push(snap.id);
 
             if ( !snap.active || snap.simple || (snapFilter && !snapFilter(snap))) {
-           //     console.log('.... not emitting for %s', snap.id);
                 continue;
             }
-            if ((!sHeard) && snap.receptors[message]) {
-          //      console.log('==== dispatching for %s', snap.id);
-                snap.receptors[message].dispatch(meta);
+            if (!sHeard) {
+                snap.dispatch(message, meta);
             }
             switch (linkType) {
                 case 'semantic':

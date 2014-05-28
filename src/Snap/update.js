@@ -1,4 +1,3 @@
-
 /**
  * reports on pending changes.
  *
@@ -6,7 +5,9 @@
  * @returns {{Object} || false}
  */
 Snap.prototype.pending = function (keys) {
-    if (this.simple) return false;
+    if (this.simple) {
+        return false;
+    }
     var found = false;
     if (!keys) {
         keys = _.keys(this._pendingChanges);
@@ -26,7 +27,13 @@ Snap.prototype.pending = function (keys) {
     return found ? out : false;
 };
 
-Snap.prototype.hasUpdates = function () {
+/**
+ * will check to see if specific fields have changes
+ * if field names passed as arguments
+ *
+ * @returns {*}
+ */
+Snap.prototype.hasPendingChanges = function () {
     if (arguments.length) {
         for (var i = 0; i < arguments.length; ++i) {
             if (this._pendingChanges.hasOwnProperty(arguments[i])) {
@@ -36,21 +43,34 @@ Snap.prototype.hasUpdates = function () {
         return false;
     }
 
-    //@TODO: replace with check.nonemptyObject
-    for (var p in this._pendingChanges) {
-        return true;
-    }
-    return false;
+    return check.not.emptyObject(this._pendingChanges);
 };
 
 /**
  * loads the pending changes into the Snap
  * @param broadcast {boolean} if true, will also update the Snap's children.
+ * @param edition {int} the current update cycle; if called in a Space.update cycle will be provided
  */
-Snap.prototype.update = function (broadcast) {
-    if (this.updated) {
-        this.updated.dispatch(broadcast);
+Snap.prototype.update = function (broadcast, edition) {
+
+    var localUpdate = false;
+    if (!edition) {
+        localUpdate = true;
+        if (this.space.isUpdating()) {
+            console.log('attempt to restart a space\'s update cycle');
+            return;
+        } else {
+            edition = this.space.startEdition(this.id);
+        }
     }
+
+    this.dispatch('updated', broadcast, edition);
+
+    if (localUpdate) {
+        this.space.endEdition(edition);
+    }
+
+    return this;
 };
 
 /**
@@ -59,16 +79,17 @@ Snap.prototype.update = function (broadcast) {
  * @type {number}
  */
 var changeSet = 0;
-Snap.prototype.updateProperties = function () {
-    if (this.simple){
+_updateProperties = function () {
+    if (this.simple) {
         return;
     }
     _.extend(this._props, this._pendingChanges);
     var pending = this.pending();
-    if (pending){
+    if (pending) {
         ++changeSet;
-        for (var p in pending){
-            if (this.changeReceptors.hasOwnProperty(p)){
+        for (var p in pending) {
+            if (this.changeReceptors.hasOwnProperty(p)) {
+                //@TODO: changeReceptors should be Termianl
                 this.changeReceptors[p].dispatch(
                     pending[p].pending,
                     pending[p].old,
@@ -81,39 +102,45 @@ Snap.prototype.updateProperties = function () {
 
     this.lastChanges = pending;
     this._pendingChanges = {};
-};
-
-Snap.prototype.updatePhysics = function () {
-    var changes = {};
-};
-
-Snap.prototype.cleanupDeleted = function () {
     SNAPS.cleanObj(this._props);
     SNAPS.cleanObj(this._myProps);
 };
 
+_updatePhysics = function () {
+    var changes = {};
+};
+
 Snap.prototype.initUpdated = function () {
-
-    this.updated = new signals.Signal();
-
-    /**
-     * disable unneeded handlers
-     */
-    this.updated.add(function (broadcast) {
+    this.listen('updated', function (broadcast, edition) {
         if (!this.active) {
             return false;
         }
-        doBlendsBinding.active = (this.blendCount > 0);
-        //  doUpdatePhysicsBinding.active = (this.physicsCount > 0);
-        doUpdateObserversBinding.active = (this.observers.length);
-        doBroadcastUpdateBinding.active = !!broadcast;
-    }.bind(this));
+        if (this.blendCount > 0) {
+            this.terminal.receptor.updateBlends.dispatch(broadcast, edition);
+        }
+        if (this.physicsCount > 0) {
+            this.terminal.receptor.updatePhysics.dispatch(broadcast, edition);
+        }
 
-    var doBlendsBinding = this.updated.add(this.updateBlends.bind(this));
-    // var doUpdatePhysicsBinding = this.updated.add(this.updatePhysics.bind(this));
-    var doUpdateObserversBinding = this.updated.add(this.updateObservers.bind(this));
-    var doChangesBinding = this.updated.add(this.updateProperties.bind(this));
-    var doCleanupBinding = this.updated.add(this.cleanupDeleted.bind(this));
-    var doBroadcastUpdateBinding = this.updated.add(this.broadcastUpdate.bind(this));
+        if (this.observers.length) {
+            this.terminal.receptor.updateObservers.dispatch(broadcast, edition);
+        }
+
+        if (check.not.emptyObject(this._pendingChanges)) {
+            this.terminal.receptor.updateProperties.dispatch(broadcast, edition);
+        }
+
+        if (broadcast) {
+            var children = this.nodeChildren();
+            for (var c = 0; c < children.length; ++c) {
+                children[c].update(broadcast, edition);
+            }
+        }
+    }, this);
+
+    this.listen('updateBlends', this.updateBlends, this);
+    this.listen('updatePhysics', _updatePhysics, this);
+    this.listen('updateObservers', this.updateObservers, this);
+    this.listen('updateProperties', _updateProperties, this);
 
 };

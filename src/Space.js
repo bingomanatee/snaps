@@ -2,6 +2,11 @@ var Space = function () {
     this.id = 1;
     this.snaps = [];
     this.resetTime();
+    this.edition = 0;
+    this.editionStarted = 0;
+    this.editionCompleted = 0;
+    this.benchmarking = false;
+    this.benchmarks = [];
 };
 
 Space.prototype.$TYPE = 'SPACE';
@@ -20,14 +25,14 @@ Space.prototype.setTime = function (n) {
     return this;
 };
 
-Space.prototype.addLink = function(id, link){
-    if (this.snaps[id] && (!this.snaps[id].simple)){
+Space.prototype.addLink = function (id, link) {
+    if (this.snaps[id] && (!this.snaps[id].simple)) {
         this.snaps[id].addLink(link);
     }
 };
-Space.prototype.removeLink = function(link){
-    _.each(link.ids, function(id){
-        if (this.snaps[id] && (!this.snaps[id].simple)){
+Space.prototype.removeLink = function (link) {
+    _.each(link.ids, function (id) {
+        if (this.snaps[id] && (!this.snaps[id].simple)) {
             this.snaps[id].removeLink(link);
         }
     }, this);
@@ -64,27 +69,25 @@ Space.prototype.snap = function (input) {
     return snap;
 };
 
-
 Space.prototype.hasSnap = function (snap, onlyIfActive) {
 
-    if (typeof snap == 'object'){
-        snap = SNAPS.assert.$TYPE(snap, 'SNAP', 'hasSnap passed non-snap');
-        if (snap.space !== this){
+    if (typeof snap == 'object') {
+        if (snap.space !== this) {
             return false;
         }
-        snap = snap.id;
-    };
+    }
+    var id = SNAPS.assert.toId(snap, 'SNAP');
 
-    if(snap >= this.snaps.length){
+    if (id >= this.snaps.length) {
+        console.log('unregistered snap detected: %s', snap);
         return false;
     }
     if (onlyIfActive) {
-        return this.snaps[snap].active;
+        return this.snaps[id].active;
     } else {
         return true;
     }
 };
-
 
 Space.prototype.bd = function (props, ele, parent) {
     props = SNAPS.assert.or('object', props, {});
@@ -103,10 +106,46 @@ Space.prototype.nextTime = function () {
     return this.time;
 };
 
+Space.prototype.isUpdating = function () {
+    return this.editionStarted > this.editionCompleted;
+};
+
+Space.prototype.startEdition = function (requestor) {
+    if (this.benchmarking){
+        var t = new Date().getTime();
+        var data = [requestor, t, t - this.startTime, this.time];
+    }
+
+    if (this.isUpdating()){
+        throw new Error('attempting to start an edition during the updating cycle');
+    }
+
+     this.editionStarted = ++this.edition;
+    if (this.benchmarking){
+        this.benchmarks[this.edition] = data;
+    }
+
+    return this.editionStarted;
+};
+
+Space.prototype.endEdition = function (currentEd) {
+    if (currentEd != this.editionStarted){
+        console.log('edition versions mismatch at endEdition: %s, %s', currentEd, this.editionStarted);
+        return;
+    }
+    this.editionCompleted = this.editionStarted;
+    if (this.benchmarking){
+        var t = new Date().getTime();
+        this.benchmarks[this.editionStarted].push(t, t - this.startTime);
+    }
+};
+
 Space.prototype.update = function (next) {
     if (next) {
         this.nextTime();
     }
+
+    var currentEd = this.startEdition();
 
     var i;
     var snap;
@@ -116,7 +155,7 @@ Space.prototype.update = function (next) {
     for (i = 0; i < l; ++i) {
         snap = this.snaps[i];
         if (snap.active) {
-            snap.update();
+            snap.update(null, currentEd);
         }
     }
 
@@ -129,6 +168,7 @@ Space.prototype.update = function (next) {
         }
     }
 
+    this.endEdition(currentEd);
 };
 
 SNAPS.space = function () {

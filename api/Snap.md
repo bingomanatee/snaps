@@ -100,10 +100,11 @@ only if the Snaps' property has been directly set (as opposed to being set thoru
 
 #### Snap.set( prop : string,  value: variant, immediate: boolean) : this (Snap)
 
-queues a property to be changed upon the next update cycle. if immediate is true, the value is
-updated directly, by triggering a local `update()`.
+queues a property to be changed upon the next update cycle.
+if immediate is true, the value is updated directly.
+note- during an update cycle, all `set()`'s are immediate.
 
-Calls inherit recursively over the child heirarchy -- which will also reflect the initial value of immediate.
+Calls inherit recursively over the child node tree.
 
 #### Snap.get (prop: string, pending: boolean) : variant
 
@@ -211,7 +212,7 @@ See SNAP.impulse for details.
 this method links all the children of this Snap to any/all parents the Snap has, and
 destroys the parent/child link nodes between this Snap and its parents and children,
 taking the Snap "out of the network" of nodes. Part of the `destroy()` process of a Snap,
-but might be usefu for moving Snaps around without destorying the heirarchy.
+but might be useful for moving Snaps around without obliterating the family tree's branch.
 
 #### Snap.listen(message : string, listener: function, bind: boolean) : this (Snap)
 
@@ -219,14 +220,31 @@ adds a listener to the receptors for a given event (which may be emitted through
 or by directly dispatching to a snaps' receptor. This method may add a Signal to a Snaps receptor.
 Do not call on a simple Snap -- wiill throw an error.
 
-#### Methods : Observers
+### Methods : Observers
 
-TODO
+### Methods : Update
 
-#### Methods : Update
+#### hasPendingChanges(): boolean
 
-TODO
+reflects whether the snap has properties that have been changed using set() or inherit().
 
-#### Methods: Physics
+#### pending(keys: [String] (optional)) : Object
+
+returns a summary of pending changes as an object whose properties are the fields
+queued for update. If arguemnts are passed, returns only information on those keys.
+
+Each value of the object is an object with the following schema:
+
+* **old:** the current property value
+* **pending:** the value the property will be set to on next update:
+* **new:** (boolean) whether the property currently exists or not
+
+#### update(broadcast: boolean, edition:int) : this (Snap)
+
+Applies the pending updates to the object; also updates properties based on any current animations.
+`edition` is meant to track which iteration of update is being executed; if update is being called from
+the Space it will be provided; do not enter it yourself.
+
+### Methods: Physics
 
 TODO

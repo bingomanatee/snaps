@@ -63,7 +63,7 @@ overloaded:
  * if is true: returns a new "simple" Snap
  * if is object: returns a new Snap with a preset property list.
 
-#### Space.hasSnap(Snap || id) : boolean
+#### Space.hasSnap(Snap/id) : boolean
 
 returns whether the snap is included in this space -- or if an id int is valid.
 Good if you are using multiple spaces to validate membership of a given snap in a given space.

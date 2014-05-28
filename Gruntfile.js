@@ -6,6 +6,7 @@ module.exports = function(grunt) {
                 files: {
                     'build/snaps.js': [
                         'src/index.js',
+                        'src/Terminal.js',
                         'src/check-typesjs.js',
                         'src/assert.js',
                         'src/Rel.js',

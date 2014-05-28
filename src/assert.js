@@ -301,7 +301,19 @@ SNAPS.assert = {
                 throw "cannot understand size type " + typeName;
         }
         return item;
+    },
+
+    toId: function (item, iType) {
+        if (check.object(item)) {
+            if (!item.$TYPE) {
+                throw new Error('untyped object passed into toId');
+            } else if (item.$TYPE == iType) {
+                return item.id;
+            } else {
+                throw new Error('wrong type passed into toId: ' + item.$TYPE);
+            }
+        } else if (check.verify.intNumber(item, 'non-object, non-int passed into toId')){
+            return item;
+        }
     }
-
-
 };

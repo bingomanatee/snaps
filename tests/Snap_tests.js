@@ -64,22 +64,22 @@ describe('SNAPS', function () {
             });
 
             it('should let you set a property', function () {
-                snap.hasUpdates().should.eql(false);
+                snap.hasPendingChanges().should.eql(false);
                 snap.set('foo', 1);
                 new String(typeof( snap.get('foo'))).should.eql('undefined');
-                snap.hasUpdates().should.eql(true);
+                snap.hasPendingChanges().should.eql(true);
 
                 snap.update();
 
                 snap.get('foo').should.eql(1);
-                snap.hasUpdates().should.eql(false);
+                snap.hasPendingChanges().should.eql(false);
             });
 
             it('should let you set a property with instant update', function () {
-                snap.hasUpdates().should.eql(false);
+                snap.hasPendingChanges().should.eql(false);
                 snap.setAndUpdate('foo', 1);
                 snap.get('foo').should.eql(1);
-                snap.hasUpdates().should.eql(false);
+                snap.hasPendingChanges().should.eql(false);
             });
 
             describe('children', function () {
@@ -102,8 +102,8 @@ describe('SNAPS', function () {
                         it('should cascade a property to a child', function () {
 
                             snap.set('foo', 1);
-                            snap.hasUpdates().should.eql(true);
-                            snapChild.hasUpdates().should.eql(true);
+                            snap.hasPendingChanges().should.eql(true);
+                            snapChild.hasPendingChanges().should.eql(true);
 
                             space.update();
 
@@ -133,9 +133,9 @@ describe('SNAPS', function () {
                         it('should cascade a property to a child', function () {
 
                             snap.set('foo', 1);
-                            snap.hasUpdates().should.eql(true);
-                            snapChild.hasUpdates().should.eql(true);
-                            snapGrandchild.hasUpdates().should.eql(true);
+                            snap.hasPendingChanges().should.eql(true);
+                            snapChild.hasPendingChanges().should.eql(true);
+                            snapGrandchild.hasPendingChanges().should.eql(true);
 
                             space.update();
 
@@ -166,9 +166,9 @@ describe('SNAPS', function () {
                              * the downstream snaps are also immune to being set to dirty.
                              */
 
-                            snap.hasUpdates().should.eql(true);
-                            snapChild.hasUpdates().should.eql(false);
-                            snapGrandchild.hasUpdates().should.eql(false);
+                            snap.hasPendingChanges().should.eql(true);
+                            snapChild.hasPendingChanges().should.eql(false);
+                            snapGrandchild.hasPendingChanges().should.eql(false);
 
                             space.update();
 
@@ -183,7 +183,7 @@ describe('SNAPS', function () {
         });
 
         describe('observers', function () {
-            describe('change watcher', function () {
+            describe.only('change watcher', function () {
                 var space;
                 var snap;
 
@@ -227,7 +227,7 @@ describe('SNAPS', function () {
             });
 
             it('should let you set and delete a property', function () {
-                snap.hasUpdates().should.eql(false);
+                snap.hasPendingChanges().should.eql(false);
                 snap.set('foo', 1);
                 new String(typeof( snap.get('foo'))).should.eql('undefined');
                 snap.update();
@@ -317,8 +317,8 @@ describe('SNAPS', function () {
                     hits = [];
 
                     function _hit() {
-                   //     console.log(' >>>>>>>>>> PUSHING SNAP ID %s', this.id);
                         hits.push(this.id);
+                       // console.log(' >>>>>>>>>> PUSHING SNAP ID %s', this.id);
                     }
 
                     s1 = space.snap();
@@ -336,7 +336,7 @@ describe('SNAPS', function () {
 
                     // every snap listens for impulse
                     [s1, s2, s3, s4, s5, s6].forEach(function (s) {
-                        s.listen('foo', _hit, true);
+                        s.listen('foo', _hit, s);
                     });
 
 
@@ -347,7 +347,12 @@ describe('SNAPS', function () {
                     [s1, s3, s5].forEach(function (s) {
                         s.set('bar', 2);
                        if (s.id > 0) expectedIds.push(s.id);
+                        return;
+                        console.log('snap: %s, profile: %s', s.id,
+                            util.inspect( s.terminal.profile()));
                     });
+
+
                     space.update();
 
                 });
@@ -392,8 +397,8 @@ describe('SNAPS', function () {
                     s3.link(s5);
                     s3.link(s6);
 
-                    s2.listen('foo', _hit, true);
-                    s5.listen('foo', _hit, true);
+                    s2.listen('foo', _hit, s2);
+                    s5.listen('foo', _hit, s5);
 
                     s1.impulse('foo', 'node');
 

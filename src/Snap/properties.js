@@ -9,9 +9,15 @@ Snap.prototype.set = function (prop, value, immediate) {
         return this;
     }
     this._myProps[prop] = value;
-    this._pendingChanges[prop] = value;
+
+    if (this.space.editionStarted > this.space.editionCompleted) {
+        immediate = true;
+    }
+
     if (immediate) {
-        this.update();
+        this._props[prop] = value;
+    } else{
+        this._pendingChanges[prop] = value;
     }
 
     var ch = this.nodeChildren();
@@ -31,13 +37,18 @@ Snap.prototype.get = function (prop, pending) {
 };
 
 Snap.prototype.inherit = function (prop, value, immediate) {
-    if (this._myProps.hasOwnProperty(prop, 1)) {
+    if (this._myProps.hasOwnProperty(prop)) {
         return;
     }
-    //@TODO: neutralize non changes?
-    this._pendingChanges[prop] = value;
+
+    if (this.space.editionStarted > this.space.editionCompleted) {
+        immediate = true;
+    }
+
     if (immediate) {
-        this.update();
+        this._props[prop] = value;
+    } else{
+        this._pendingChanges[prop] = value;
     }
 
     var ch = this.nodeChildren();

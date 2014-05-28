@@ -138,13 +138,6 @@ Snap.prototype.impulse = function (message, linkType, props, meta) {
     return this;
 };
 
-Snap.prototype.broadcastUpdate = function () {
-    var children = this.nodeChildren();
-    for (var c = 0; c < children.length; ++c) {
-        children[c].update(true);
-    }
-};
-
 /**
  * prepare this snap to be destroyed;
  * links all the children of this snap to its parent(s) if any
@@ -180,17 +173,6 @@ Snap.prototype.unparent = function () {
             }
         }
     }
-
-    return this;
-};
-
-Snap.prototype.listen = function (message, listener, bindListener) {
-    if (this.simple) throw "Simple Snaps do not receive messages";
-
-    if(!this.receptors[message]){
-        this.receptors[message] = new signals.Signal();
-    }
-    this.receptors[message].add(bindListener ? listener.bind(this) : listener);
 
     return this;
 };
