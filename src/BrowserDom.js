@@ -108,10 +108,6 @@ SNAPS.BrowserDom.prototype.merge = function (prop, value, c) {
     this.attrSnap.merge(prop, value, c);
 };
 
-SNAPS.BrowserDom.prototype.setStyle = function (prop, value) {
-    this.styleSnap.set(prop, value);
-};
-
 SNAPS.BrowserDom.prototype.destroy = function (prop, value) {
     this.removeElement();
     this.attrSnap.destroy();

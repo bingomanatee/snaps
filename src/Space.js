@@ -25,15 +25,26 @@ Space.prototype.setTime = function (n) {
     return this;
 };
 
-Space.prototype.addLink = function (id, link) {
-    if (this.snaps[id] && (!this.snaps[id].simple)) {
-        this.snaps[id].addLink(link);
+/**
+ * deprecated - more efficient to do this inside link
+ * ensures every snap in a link knows about the link
+ * @param snap
+ * @param link
+ */
+Space.prototype.addLink = function (snap, link) {
+    if (!snap.simple) {
+        snap.addLink(link);
     }
 };
+
+/**
+ * deprecated -- more efficient to do this directy inside the link
+ * @param link
+ */
 Space.prototype.removeLink = function (link) {
-    _.each(link.ids, function (id) {
-        if (this.snaps[id] && (!this.snaps[id].simple)) {
-            this.snaps[id].removeLink(link);
+    _.each(link.snaps, function (snap) {
+        if ((!snap.simple)) {
+            snap.removeLink(link);
         }
     }, this);
 };

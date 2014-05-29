@@ -57,7 +57,9 @@ describe('SNAPS', function () {
                     snap.destroy();
                     link.isValid(true).should.eql('inactive');
 
-                    snap2.getLinks('semantic').should.eql([]);
+                    snap2.getLinks('semantic').map(function(link){
+                        return link.identity();
+                    }).should.eql([]);
                 });
 
             });
@@ -145,14 +147,18 @@ describe('SNAPS', function () {
                     link.isValid().should.eql(true);
 
                     snap.destroy();
-                    link.isValid(true).should.eql(true);
-                    link.ids.should.eql([1]);
+                    link.isValid(true).should.eql('inactive');
+                    _.map(link.snaps, function(snap){
+                        return snap.identity();
+                    }).should.eql([snap2.identity()]);
 
-                    snap2.getLinks('set').should.eql([link]);
+                    snap2.getLinks('set').map(function(link) {
+                        return link.identity();
+                    }).should.eql([link.identity()]);
 
                     snap2.destroy();
-                    link.isValid(true).should.eql(true);
-                    link.ids.should.eql([]);
+                    link.isValid(true).should.eql('inactive');
+                    link.active.should.eql(false);
                 })
 
             });

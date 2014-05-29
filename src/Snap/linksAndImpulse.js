@@ -1,5 +1,4 @@
-
-Snap.prototype.link = function () {
+Snap.prototype.link = function() {
     var args = _.toArray(arguments);
     var linkType;
     if (typeof(args[0]) == 'string') {
@@ -11,60 +10,60 @@ Snap.prototype.link = function () {
     return new SNAPS.Link(this.space, args, linkType);
 };
 
-Snap.prototype.removeLink = function (link) {
+Snap.prototype.removeLink = function(link) {
     if (this.simple || (!this.links.length)) {
         return;
     }
     var linkId = isNaN(link) ? link.id : link;
 
-    this.links = _.reject(this.links, function (link) {
-        return link.id == linkId;
-    })
-
+    this.links = _.reject(this.links, function(link) {
+        return link.inactive || (link.id == linkId);
+    });
     return this
 };
 
-Snap.prototype.addLink = function (link) {
-    if (!_.find(this.links, function (l) {
+Snap.prototype.addLink = function(link) {
+    if (this.simple) return;
+    if (!_.find(this.links, function(l) {
         return l.id == link.id
     })) {
         this.links.push(link);
     }
 };
 
-Snap.prototype.getLinks = function (linkType, filter) {
-    if (this.simple){
+Snap.prototype.getLinks = function(linkType, filter) {
+    if (this.simple) {
         return [];
     }
     var self = this;
-    return _.filter(this.links, function (l) {
+    return _.filter(this.links, function(l) {
+        if (l.active = false) return false;
         return (l.linkType == linkType) ? ((filter) ? filter(l, self) : true) : false;
     });
 };
 
-Snap.prototype.nodeChildren = function (ids) {
+Snap.prototype.nodeChildren = function(ids) {
     var nodes = this.nodeChildNodes();
 
-    return _.reduce(nodes, function (o, n) {
-        var s = n.get(1, ids);
-        if (s.active && !s.simple) {
-            o.push(s);
+    return _.reduce(nodes, function(o, link) {
+        if (link.snaps[1].active) {
+            o.push(ids ? link.snaps[1].id : link.snaps[1]);
         }
         return o;
     }, []);
 };
 
-Snap.prototype.nodeChildNodes = function () {
+Snap.prototype.nodeChildNodes = function() {
     var myId = this.id;
-    return this.getLinks('node', function (n) {
-        return n.ids[0] == myId;
+    return this.getLinks('node', function(n) {
+        return n.snaps[0].id == myId;
     });
 };
 
-Snap.prototype.hasNodeChildren = function () {
+Snap.prototype.hasNodeChildren = function() {
     for (var i = 0; i < this.links.length; ++i) {
         var link = this.links[i];
-        if (link.linkType == 'node' && link.ids[0] == this.id) {
+        if (link.linkType == 'node' && link.snaps[0].id == this.id) {
             return true;
         }
     }
@@ -72,7 +71,7 @@ Snap.prototype.hasNodeChildren = function () {
     return false;
 };
 
-Snap.prototype.nodeSpawn = function () {
+Snap.prototype.nodeSpawn = function() {
     var children = this.nodeChildren();
 
     var leafs = [];
@@ -102,15 +101,16 @@ Snap.prototype.nodeSpawn = function () {
 
 };
 
-Snap.prototype.nodeFamily = function () {
+Snap.prototype.nodeFamily = function() {
 
+    var id = this.id;
     var out = {
-        id: this.id
+        id: id
     };
 
-    var childLinks = this.getLinks('node', function (link) {
-        return link.ids[0] == this.id;
-    }.bind(this));
+    var childLinks = this.getLinks('node', function(link) {
+        return link.snaps[0].id == id;
+    });
 
     for (var l = 0; l < childLinks.length; ++l) {
         var link = childLinks[l];
@@ -132,7 +132,7 @@ Snap.prototype.nodeFamily = function () {
     return out;
 };
 
-Snap.prototype.impulse = function (message, linkType, props, meta) {
+Snap.prototype.impulse = function(message, linkType, props, meta) {
     SNAPS.impulse(this, message, linkType, props, meta);
 
     return this;
@@ -143,7 +143,7 @@ Snap.prototype.impulse = function (message, linkType, props, meta) {
  * links all the children of this snap to its parent(s) if any
  * and destroys its node links.
  */
-Snap.prototype.unparent = function () {
+Snap.prototype.unparent = function() {
     if (this.simple) {
         return;
     }
@@ -152,24 +152,24 @@ Snap.prototype.unparent = function () {
     if (!nodes.length) {
         return;
     }
-    var childIds = [];
-    var parentIds = [];
+    var children = [];
+    var parents = [];
 
     for (var n = 0; n < nodes.length; ++n) {
         var node = nodes[n];
-        if (node.ids[0] == this.id) { // child  link
-            childIds.push(node.ids[1]);
-        } else if (node.ids[1] == this.id) {
-            parentIds.push(node.ids[0]);
+        if (node.snaps[0].id == this.id) { // child  link
+            children.push(node.snaps[1]);
+        } else if (node.snaps[1].id == this.id) {
+            parents.push(node.snaps[0]);
         }
         node.destroy();
     }
 
-    for (var p = 0; p < parentIds.length; ++p) {
-        var parent = this.space.get(p);
+    for (var p = 0; p < parents.length; ++p) {
+        var parent = parents[p];
         if (parent && parent.active && (!parent.simple)) {
-            for (var c = 0; c < childIds.length; ++c) {
-                parent.link(childIds[c]);
+            for (var c = 0; c < children.length; ++c) {
+                parent.link(children[c]);
             }
         }
     }

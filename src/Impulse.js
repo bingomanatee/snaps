@@ -67,8 +67,8 @@ SNAPS.impulse = function (origin, message, linkType, props, meta) {
             if (linkFilter && (!linkFilter(link))) {
                 continue;
             }
-            for (var l = linkIdStartPlace; l < link.ids.length; ++l) {
-                var linkSnap = link.get(l);
+            for (var l = linkIdStartPlace; l < link.snaps.length; ++l) {
+                var linkSnap = link.snaps[l];
                 if ((!linkSnap.active) || (linkSnap.simple)) {
                     continue;
                 }
@@ -96,7 +96,7 @@ SNAPS.impulse = function (origin, message, linkType, props, meta) {
                 case 'semantic':
                     for (var sl = 0; sl < snap.links.length; ++sl) {
                         var slink = snap.links[sl];
-                        if (slink.ids[0] == snap.id) {
+                        if (slink.snaps[0].id == snap.id) {
                             links.push(slink);
                         }
                     }
@@ -105,15 +105,14 @@ SNAPS.impulse = function (origin, message, linkType, props, meta) {
                 case 'node':
                     for (var sl = 0; sl < snap.links.length; ++sl) {
                         var slink = snap.links[sl];
-                        if (slink.ids[0] == snap.id) {
-               //             console.log('adding link %s from %s', slink.ids.join(','), snap.id);
+                        if (slink.snaps[0].id == snap.id) {
                             links.push(slink);
                         }
                     }
                     break;
 
                 default:
-                    throw 'not set up to send impulse to other networks yet...';
+                    console.log('not set up to send impulse to other networks yet...');
             }
         }
         snaps = [];

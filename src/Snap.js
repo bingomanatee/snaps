@@ -20,7 +20,7 @@ function Snap(space, id, props) {
     this.space = SNAPS.assert.$TYPE(space, 'SPACE');
     this.id = SNAPS.assert.int(id, 'id must be a number');
     this.invalid = false;
-    this.simple = !!(props && props.simple);
+    this._simple = !!(props && props.simple);
     if (this.simple) delete props.simple;
     /**
      * _props are the public properties of the snap. Do not access this directly -- use get and set.
@@ -68,6 +68,21 @@ function Snap(space, id, props) {
     this.initUpdated();
 }
 
+Snap.prototype.__defineGetter__('simple', function(){
+    return this._simple;
+});
+
+Snap.prototype.__defineSetter__('simple', function(value){
+    throw 'simple, once set, cannot be changed';
+});
+
+Snap.prototype.identity = function(){
+    var out = _.pick(this, 'id', 'active', 'simple', 'links', '$TYPE');
+    out.links = _.map(out.links, function(link){
+        return link.identity();
+    });
+    return out;
+};
 
 Snap.prototype.$TYPE = 'SNAP';
 
