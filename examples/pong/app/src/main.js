@@ -5,19 +5,40 @@ define(function (require, exports, module) {
 
 
     var space = SNAPS.space();
+    space.document = document;
 
     function animate() {
         space.update(true);
         requestAnimationFrame(animate);
     }
 
-    var box = new SNAPS.BrowserDom(space, {
+    var box =  space.bd();
+    box.setStyle({
         width: 200,
         height: 150,
-        'background-color': 'red',
-        addElement: true,
-        content: 'Bob the Box'
+        'background-color': 'red'
     });
+    box.setContent( 'Bob the Box').addElement();
+
+
+
+    var box2 =  space.bd().setStyle({
+        position: 'absolute',
+        top: 300,
+        width: 100,
+        height: 150,
+        addElement: true,
+        'background-color': 'green'
+    }).setContent('Danny Dommo').addElement();
+
+    var box3 =  space.bd().setStyle({
+        position: 'absolute',
+        top: 150,
+        width: 100,
+        height: 150,
+        addElement: true,
+        'background-color': 'blue'
+    }).setContent("Three Musketeers").addElement();
 
     setTimeout(function(){
         box.styleSnap.blend('width', 400, 5000, SNAPS.ease.elasticIn);
@@ -33,28 +54,6 @@ define(function (require, exports, module) {
     setTimeout(function(){
         box3.styleSnap.blend('width', 800, 300, SNAPS.ease.elasticOut);
     }, 2000);
-
-
-
-    var box2 = new SNAPS.BrowserDom(space, {
-        position: 'absolute',
-        top: 300,
-        width: 100,
-        height: 150,
-        html: 'Danny Dommo',
-        addElement: true,
-        'background-color': 'green'
-    });
-
-    var box3 = new SNAPS.BrowserDom(space, {
-        position: 'absolute',
-        top: 150,
-        width: 100,
-        height: 150,
-        html: 'Danny Dommo',
-        addElement: true,
-        'background-color': 'blue'
-    });
 
     animate();
 });

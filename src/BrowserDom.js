@@ -28,8 +28,8 @@ function _makeDom() {
         this.link('resource', this.attrSnap).meta = 'attr';
         // although this is referenced as a direct property we add it to the links to enable cascading delete
 
-        this.attrSnap.listen('output', _attrSnapChanges, this);
-        this.styleSnap.listen('output', _styleSnapChanges, this);
+        this.attrSnap.listen('updateProperties', _attrSnapChanges, this);
+        this.styleSnap.listen('updateProperties', _styleSnapChanges, this);
         this._element = ele;
         this._parent = parent;
         if (ele && parent && ele.parentNode !== parent) {
@@ -47,13 +47,18 @@ function _makeDom() {
                 }
             }
         }, this)
+
+        this.changeReceptors.content = new signals.Signal();
+        this.changeReceptors.content.add(function(content){
+            this.e().innerHTML = content;
+        }, this)
     };
 
     Dom.prototype = Object.create(Snap.prototype);
     Dom.prototype.$TYPE = 'DOM';
 
     Dom.prototype.domNodeName = function() {
-        return this.get('tag') || 'div';
+        return this.has('tag') ? this.get('tag') : 'div';
     };
 
     //@TODO: is this async?
@@ -83,10 +88,29 @@ function _makeDom() {
             } else {
                 this.window = window; // global
                 this.document = document; // global
-                this._element = document.createElement(this.tagName);
+                this._element = document.createElement(this.domNodeName());
             }
         }
         return this._element;
+    };
+
+    Dom.prototype.setStyle = function(prop, value){
+
+        var args = _.toArray(arguments);
+        var prop = args[0];
+        if (typeof(prop) == 'object') {
+            for (var p in prop) {
+                this.styleSnap.set(p, prop[p]);
+            }
+            return this;
+        } else {
+            this.styleSnap.set(prop, value)
+        }
+    };
+
+    Dom.prototype.setContent = function(content){
+        this.set('content', content);
+        return this;
     };
 
     Dom.prototype.destroy = function() {
@@ -98,9 +122,10 @@ function _makeDom() {
 
     Dom.prototype.addElement = function(parent) {
         if (!parent) {
-            parent = this.document.body;
+            parent = this.space.document.body;
         }
         parent.appendChild(this.e());
+        return this;
     };
 
     Dom.prototype.h = Dom.prototype.html = function(value) {
@@ -148,19 +173,17 @@ function _makeDom() {
             // this recursive call allows for a config object with subsequent arguments.
             var pArgs = args.slice(1);
             for (var p in prop) {
-                var arg = prop[p];
-                pArgs.unshift(arg);
-                pArgs.unshift(p);
-                this.s.apply(this, pArgs);
+                var value = prop[p];
+                this.s(p, value);
             }
-
+            return this;
         } else if (args.length > 1) {
             var value = args[1];
 
             // append 'px' (pixels) to numeric properties that require numeric units
             if (typeof(value) == 'number' && _pxProps[prop.toLowerCase()]) {
                 var unit;
-                if (args.length > 1){
+                if (args.length > 2){
                      unit = args[2]
                 } else {
                     unit = 'px';
@@ -179,6 +202,7 @@ function _makeDom() {
         if (parent) {
             parent.removeChild(this.e());
         }
+        return this;
     };
 
     /**
@@ -233,85 +257,9 @@ function _makeDom() {
     };
 }
 
-/**
- * BrowserDom is an element bridge between a DOM element
- * and properties of a snap instance.
- *
- * @param space {SNAPS.Space}
- * @param props {Object}
- * @constructor
- *
-
- SNAPS.BrowserDom = function(space, props) {
-    this.space = space;
-    this.attrSnap = space.snap();
-
-    //  var rel = this.attrSnap.rel('style', space.snap());
-    this.styleSnap = space.snap();
-
-    this.tagName = props.tagName || 'div';
-    delete props.tagName;
-
-    this.element = this.e = props.element || document.createElement(this.tagName);
-    this.initOutput();
-    delete props.watchedProps;
-
-    if (props.addElement) {
-        if (props.addElement === true) {
-            this.addElement();
-        } else {
-            var parent = props.addElement.$TYPE == SNAPS.BrowserDom.prototype.$TYPE ? props.addElement.element : props.addElement;
-            this.addElement(parent);
-        }
-        delete props.addElement;
-    }
-
-    for (var p in props) {
-        if (_htmlRE.test(p)) {
-            this.h(props[p]);
-        } else {
-            var pp = p.toLowerCase();
-            if (_styleOverrides[pp]) {
-                this.styleSnap.set(pp, props[p]);
-            } else if (_attrs[pp]) {
-                this.attrSnap.set(pp, props[p]);
-            } else {
-                this.styleSnap.set(pp, props[p]);
-            }
-        }
-    }
-};
-
- SNAPS.BrowserDom.prototype.$TYPE = 'BROWSERDOM';
-
- SNAPS.BrowserDom.prototype.initOutput = function() {
-    this.attrSnap.listen('output', _attrSnapChanges, this);
-    this.styleSnap.listen('output', _styleSnapChanges, this);
-};
-
- SNAPS.BrowserDom.prototype.destroy = function(prop, value) {
-    this.removeElement();
-    this.attrSnap.destroy();
-    this.styleSnap.destroy();
-    if (this.dataSnap) {
-        this.dataSnap.destroy();
-    }
-};
-
- */
 function _styleSnapChanges() {
-    var changes = this.styleSnap.lastChanges;
-    //console.log('style changes: ', changes);
-    for (var p in changes) {
-        var value = this.styleSnap.get(p);
-
-        if (value === SNAPS.DELETE) {
-            this.e().style.removeProperty(p);
-        } else {
-            //  console.log('setting dom ', p, 'to', value);
-            this.s(p, value);
-        }
-    }
+    var state = this.styleSnap.state();
+    this.s(state);
 }
 
 function _attrSnapChanges() {
