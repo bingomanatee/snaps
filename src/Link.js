@@ -55,10 +55,13 @@ SNAPS.Link.prototype.$TYPE = 'LINK';
 SNAPS.Link.prototype.validate = function() {
     this.snaps = _.map(this.snaps, function(snap) {
         if (typeof snap == 'object') {
-            if (snap.$TYPE == 'SNAP') {
-                return snap
+            var err = SNAPS.isSnap(snap);
+
+            if (!err) {
+                return snap;
             } else {
-                throw 'All snaps must be numbers or Snaps';
+                debugger;
+                throw err;
             }
         } else if (_.isNumber(snap)) {
             return this.space.get(snap);

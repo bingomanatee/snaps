@@ -22,6 +22,7 @@
   "homepage": "https://github.com/bingomanatee/snaps",
   "dependencies": {
     "lodash": "~2.4.1",
+      "jsdom": "~0.10.5",
     "signals": "~1.0.0"
   },
   "devDependencies": {
@@ -30,7 +31,6 @@
     "grunt-contrib-concat": "~0.4.0",
     "grunt-umd": "~1.7.4",
     "grunt-contrib-copy": "~0.5.0",
-    "jsdom": "~0.10.5",
     "should": "^3.3.2"
   }
 }

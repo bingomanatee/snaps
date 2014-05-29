@@ -108,7 +108,7 @@ describe('SNAPS', function () {
                             document.body.appendChild(div);
 
                             space = SNAPS.space();
-                            bd = space.bd({}, div, document.body);
+                            bd = space.bd(div, document.body);
                             done();
                         }
                     );
@@ -139,7 +139,8 @@ describe('SNAPS', function () {
                             document.body.appendChild(div);
 
                             space = SNAPS.space();
-                            bd = space.bd({}, div, document.body);
+                            space.document = document;
+                            bd = space.bd(div, document.body);
                             done();
                         }
                     );
@@ -166,10 +167,10 @@ describe('SNAPS', function () {
                             window = w;
                             document = window.document;
                             div = document.createElement('div');
-                            document.body.appendChild(div);
 
                             space = SNAPS.space();
-                            bd = space.bd({name: 'foo', color: 'rgb(255,0,0)'}, div, document.body);
+                            bd = space.bd(div, document.body);
+                            bd.a('name', 'foo').s('color', 'rgb(255,0,0)');
                             space.update();
                             done();
                         }
@@ -199,7 +200,7 @@ describe('SNAPS', function () {
                         document.body.appendChild(div);
 
                         space = SNAPS.space();
-                        bd = space.bd({name: 'foo', color: 'rgb(255,0,0)'}, div, document.body);
+                        bd = space.bd( div, document.body).a('name', 'foo').s('color', 'rgb(255,0,0)');
                         space.update();
                         done();
                     }
@@ -208,7 +209,7 @@ describe('SNAPS', function () {
 
             it('should allow you to set properties', function () {
                 div.outerHTML.should.eql('<div name="foo" style="color: rgb(255, 0, 0);"></div>');
-                bd.set('name', 'bar');
+                bd.attrSnap.set('name', 'bar');
                 div.outerHTML.should.eql('<div name="foo" style="color: rgb(255, 0, 0);"></div>');
                 space.update();
                 div.outerHTML.should.eql('<div name="bar" style="color: rgb(255, 0, 0);"></div>');

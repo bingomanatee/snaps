@@ -14,12 +14,12 @@ module.exports = function(grunt) {
                         'src/Impulse.js',
                         'src/ease.js',
                         'src/Observer.js',
-                        'src/BrowserDom.js',
-                        'src/BrowserDom/*.js',
                         'src/rate.js',
                         'src/Snap.js',
                         'src/Snap/*.js',
-                        'src/Space.js']
+                        'src/Space.js',
+                        'src/BrowserDom.js',
+                        'src/BrowserDom/*.js']
                 }
             }
         },

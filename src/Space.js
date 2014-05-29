@@ -100,18 +100,6 @@ Space.prototype.hasSnap = function (snap, onlyIfActive) {
     }
 };
 
-Space.prototype.bd = function (props, ele, parent) {
-    props = SNAPS.assert.or('object', props, {});
-    if (ele) {
-        props.element = ele;
-    }
-    if (parent) {
-        props.addElement = parent;
-    }
-
-    return new SNAPS.BrowserDom(this, props);
-};
-
 Space.prototype.nextTime = function () {
     this.time = new Date().getTime() - this.start;
     return this.time;
