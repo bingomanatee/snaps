@@ -255,10 +255,10 @@ describe('SNAPS', function () {
 
                     snap.get('y').should.eql(0);
                     snap.blendCount.should.eql(1);
-                    space.setTime(25);
-                    space.update();
+                    space.setTime(25).update();
                     snap.blendCount.should.eql(1);
                     snap.get('y').should.eql(50);
+                    console.log('updating at time 50');
                     space.setTime(50, true).update();
                     snap.get('y').should.eql(100);
                     snap.blendCount.should.eql(0);

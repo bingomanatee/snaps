@@ -66,6 +66,7 @@ SNAPS.Link.prototype.validate = function() {
         } else if (_.isNumber(snap)) {
             return this.space.get(snap);
         } else {
+            console.log('strange link target: %s', snap);
             throw 'WTF???';
         }
     });

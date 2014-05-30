@@ -1,13 +1,16 @@
-Snap.prototype.has = function (prop, my) {
+Snap.prototype.has = function(prop, my) {
     return my ? this._myProps.hasOwnProperty(prop) : this._props.hasOwnProperty(prop);
 };
 
-Snap.prototype.set = function (prop, value, immediate) {
-    //@TODO: kill off applicable blends
+Snap.prototype.set = function(prop, value, immediate) {
+    if (this.debug){
+        console.log('snap %s setting %s to %s', this.id, prop, _.isObject(value) ? JSON.stringify(value) : value);
+    }
     if (this.simple) {
         this._props[prop] = value;
         return this;
     }
+    this.retireOtherBlends(prop);
     this._myProps[prop] = value;
 
     if (this.space.editionStarted > this.space.editionCompleted) {
@@ -25,7 +28,7 @@ Snap.prototype.set = function (prop, value, immediate) {
     return this;
 };
 
-Snap.prototype.get = function (prop, pending) {
+Snap.prototype.get = function(prop, pending) {
     if (pending && (!this.simple)) {
         if (this._pendingChanges.hasOwnProperty(prop)) {
             return this._pendingChanges[prop];
@@ -34,26 +37,31 @@ Snap.prototype.get = function (prop, pending) {
     return this._props[prop];
 };
 
-Snap.prototype.internalUpdate = function (prop, value) {
+Snap.prototype.internalUpdate = function(prop) {
     var isNew = !this._props.hasOwnProperty(prop);
     var oldValue = this._props[prop];
+    var value;
+    if (arguments.length > 1) {
+        value = arguments[1];
+    } else if (this._pendingChanges.hasOwnProperty(prop)) {
+        value = this._pendingChanges[prop];
+    } else {
+        return;
+    }
     this._props[prop] = value;
-
     delete this._pendingChanges[prop];
 
-    if (this.changeReceptors.hasOwnProperty(prop)) {
-        //@TODO: changeReceptors should be Termianl
-        this.changeReceptors[prop].dispatch(
-            value,
-            oldValue,
-            isNew,
-            null,
-            null);
-    }
+    this.propChangeTerminal.dispatch(prop,
+        value,
+        oldValue,
+        isNew,
+        null,
+        null);
+
     this._props[prop] = value;
 };
 
-Snap.prototype.inherit = function (prop, value, immediate) {
+Snap.prototype.inherit = function(prop, value, immediate) {
     if (this._myProps.hasOwnProperty(prop)) {
         return;
     }
@@ -74,12 +82,12 @@ Snap.prototype.inherit = function (prop, value, immediate) {
     return this;
 };
 
-Snap.prototype.del = function (prop) {
+Snap.prototype.del = function(prop) {
     this.set(prop, SNAPS.DELETE);
     return this;
 };
 
-Snap.prototype.setAndUpdate = function (prop, value) {
+Snap.prototype.setAndUpdate = function(prop, value) {
     this.set(prop, value);
     if (!this.simple) {
         this.update(true);
@@ -87,7 +95,7 @@ Snap.prototype.setAndUpdate = function (prop, value) {
     return this;
 };
 
-Snap.prototype.merge = function (prop, value, combiner) {
+Snap.prototype.merge = function(prop, value, combiner) {
     if (!this.has(prop)) {
         return this.set(prop, value);
     }
@@ -112,6 +120,6 @@ Snap.prototype.merge = function (prop, value, combiner) {
  *
  * @returns {Object}
  */
-Snap.prototype.state = function () {
+Snap.prototype.state = function() {
     return _.clone(this._props);
 };

@@ -50,7 +50,7 @@ function Snap(space, id, props) {
      */
     this.observers = [];
 
-    this.changeReceptors = {};
+    this.propChangeTerminal = new Terminal();
 
     this.terminal = new Terminal({inherit: [[this.inherit, this]]});
 

@@ -19,7 +19,8 @@ module.exports = function(grunt) {
                         'src/Snap/*.js',
                         'src/Space.js',
                         'src/BrowserDom.js',
-                        'src/BrowserDom/*.js']
+                        'src/BrowserDom/*.js',
+                    'src/Box.js']
                 }
             }
         },

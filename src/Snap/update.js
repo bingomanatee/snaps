@@ -4,7 +4,7 @@
  * @param keys {[{String}]} -- optional -- a list of changes to look for
  * @returns {{Object} || false}
  */
-Snap.prototype.pending = function (keys) {
+Snap.prototype.pending = function(keys) {
     if (this.simple) {
         return false;
     }
@@ -33,7 +33,7 @@ Snap.prototype.pending = function (keys) {
  *
  * @returns {*}
  */
-Snap.prototype.hasPendingChanges = function () {
+Snap.prototype.hasPendingChanges = function() {
     if (arguments.length) {
         for (var i = 0; i < arguments.length; ++i) {
             if (this._pendingChanges.hasOwnProperty(arguments[i])) {
@@ -51,7 +51,7 @@ Snap.prototype.hasPendingChanges = function () {
  * @param broadcast {boolean} if true, will also update the Snap's children.
  * @param edition {int} the current update cycle; if called in a Space.update cycle will be provided
  */
-Snap.prototype.update = function (broadcast, edition) {
+Snap.prototype.update = function(broadcast, edition) {
 
     var localUpdate = false;
     if (!edition) {
@@ -79,7 +79,7 @@ Snap.prototype.update = function (broadcast, edition) {
  * @type {number}
  */
 var changeSet = 0;
-_updateProperties = function () {
+_updateProperties = function() {
     if (this.simple) {
         return;
     }
@@ -88,15 +88,12 @@ _updateProperties = function () {
     if (pending) {
         ++changeSet;
         for (var p in pending) {
-            if (this.changeReceptors.hasOwnProperty(p)) {
-                //@TODO: changeReceptors should be Termianl
-                this.changeReceptors[p].dispatch(
-                    pending[p].pending,
-                    pending[p].old,
-                    pending[p].new,
-                    changeSet,
-                    pending);
-            }
+            this.propChangeTerminal.dispatch(p,
+                pending[p].pending,
+                pending[p].old,
+                pending[p].new,
+                changeSet,
+                pending);
         }
     }
 
@@ -106,12 +103,12 @@ _updateProperties = function () {
     SNAPS.cleanObj(this._myProps);
 };
 
-_updatePhysics = function () {
+_updatePhysics = function() {
     var changes = {};
 };
 
-Snap.prototype.initUpdated = function () {
-    this.listen('updated', function (broadcast, edition) {
+Snap.prototype.initUpdated = function() {
+    this.listen('updated', function(broadcast, edition) {
         if (!this.active) {
             return false;
         }

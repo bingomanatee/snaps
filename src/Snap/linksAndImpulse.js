@@ -53,6 +53,24 @@ Snap.prototype.nodeChildren = function(ids) {
     }, []);
 };
 
+Snap.prototype.nodeParentNodes = function(){
+    var myId = this.id;
+    return this.getLinks('node', function(n) {
+        return n.snaps[1].id == myId;
+    });
+};
+
+Snap.prototype.nodeParents = function(ids){
+    var nodes = this.nodeParentNodes();
+
+    return _.reduce(nodes, function(o, link) {
+        if (link.snaps[1].active) {
+            o.push(ids ? link.snaps[0].id : link.snaps[0]);
+        }
+        return o;
+    }, []);
+};
+
 Snap.prototype.nodeChildNodes = function() {
     var myId = this.id;
     return this.getLinks('node', function(n) {

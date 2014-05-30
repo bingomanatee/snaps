@@ -28,7 +28,6 @@ Snap.prototype.updateBlends = function () {
             progress = 1;
             doneBlends.push(blend);
         } else {
-
             progress = _blendProgress(blendValueSnap, time, endTime);
             value = (progress * endValue) + ((1 - progress) * startValue);
         }
@@ -44,7 +43,7 @@ Snap.prototype.updateBlends = function () {
         if (blendValues[b].length != 1) {
             console.log('multiple blends for ' + b, this.id);
         }
-        this.set(b, blendValues[b][0]);
+        this.internalUpdate(b, blendValues[b][0]);
     }
 
     for (var d = 0; d < doneBlends.length; ++d) {
@@ -70,7 +69,7 @@ function _blendProgress(blendSnap, time, endTime) {
 }
 
 Snap.prototype.blend = function (prop, endValue, time, blendFn) {
-    this.retireOtherBlends(prop, time);
+    this.retireOtherBlends(prop);
     var valueSnap = this.space.snap(true); // simple/static snap
     valueSnap.set('prop', prop);
     var startValue = this.has(prop) ? parseFloat(this.get(prop)) || 0 : 0;
@@ -88,7 +87,7 @@ Snap.prototype.blend = function (prop, endValue, time, blendFn) {
     this.blendCount++;
 };
 
-Snap.prototype.retireOtherBlends = function (prop, time) {
+Snap.prototype.retireOtherBlends = function (prop) {
     var otherBlends = this.getLinks('semantic', function (link) {
 
         var metaSnap =  link.get(1);
