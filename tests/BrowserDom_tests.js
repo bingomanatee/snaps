@@ -231,7 +231,7 @@ describe('SNAPS', function() {
                     document.body.appendChild(div);
 
                     space = SNAPS.space();
-                    bd = space.bd(div, document.body)
+                    bd = space.bd(div)
                         .a('class', 'foo')
                         .s('color', 'rgb(255,0,0)');
                     bd2 = space.bd(div2, bd)
@@ -241,8 +241,6 @@ describe('SNAPS', function() {
                 });
 
             it('should embed one bd in another', function() {
-                bd.hasDomChildren().should.eql(false);
-                bd.link(bd2);
                 bd.hasDomChildren().should.eql(true);
                 document.innerHTML.should.eql('<html><body><div class="foo" style="color: rgb(255, 0, 0);"><span>bar</span></div></body></html>');
             });

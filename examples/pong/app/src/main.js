@@ -8,7 +8,8 @@ define(function (require, exports, module) {
     var PADDLEHEIGHT = 12;
     var GOPANELWIDTH = 80;
     var GOPANELHEIGHT = 80;
-    var BLOCKWIDTHPERCENT = 5
+    var big = window.innerWidth > 900;
+    var BLOCKWIDTHPERCENT = big ? 4 : 5;
     var BALL_COUUNT = 60;
     var WALLHEIGHT = 15;
 
@@ -104,12 +105,21 @@ define(function (require, exports, module) {
     var y_dir = 1;
     var x_speed = Math.random() / 2 + 0.5;
     var y_speed = Math.random() / 2 + 0.5;
+    if (big) {
+        x_speed /= 1.5;
+        y_speed /= 1.5;
+    }
 
     var velocity = Math.sqrt((x_speed * x_speed) + (y_speed * y_speed));
+    console.log('velocity: ', velocity);
+    var velScale = (big ? 0.5 : 1) / velocity;
+
+    x_speed *= velScale;
+    y_speed *= velScale;
 
     var lastTime = space.time;
-    var left = 10;
-    var top = 10;
+    var left = WALLHEIGHT;
+    var top = WALLHEIGHT;
 
     var balls = _.map(_.range(0, BALL_COUUNT), _ball);
     balls[0].style('top', 250)
@@ -145,7 +155,7 @@ define(function (require, exports, module) {
         .attr('class', 'abs go-panel')
         .style({left: ((100 - GOPANELWIDTH ) / 2) + '%', top: -GOPANELHEIGHT - window.innerHeight / 2})
         .innerHTML('GAME OVER')
-        .addElement(centerPanel.e());
+        .addElement();
     goPanel.addBox({widthPercent: GOPANELWIDTH, height: GOPANELHEIGHT});
     centerPanel.link(goPanel);
 
@@ -169,10 +179,10 @@ define(function (require, exports, module) {
     });
 
     function _spinX() {
-        if (paddleXs < 4) {
+        if (paddleXs.length < 4) {
             return;
         }
-        var time = space.time;
+
         var firstPos = paddleXs[0];
         var spin = _.reduce(paddleXs.slice(1), function (out, position) {
             var force = firstPos.left - position.left;
@@ -208,10 +218,17 @@ define(function (require, exports, module) {
             .styleSnap.blend('opacity', 1, 2000, SNAPS.ease.bounceOut);
 
         goPanel.styleSnap.blend('top', -GOPANELHEIGHT, 800, SNAPS.ease.bounceOut);
-        setTimeout(function(){
+        setTimeout(function () {
             scorePanel
                 .styleSnap.blend('opacity', 1, 500, SNAPS.ease.bounceIn);
         }, 1000);
+    }
+
+    var bounceTime = 0;
+
+    function _startCooldown(which) {
+        bounceTime = space.time;
+        console.log('bounce', which);
     }
 
     function animate() {
@@ -236,30 +253,38 @@ define(function (require, exports, module) {
             balls[0].style('left', x)
                 .style('top', y);
 
-            var right = window.innerWidth - 10;
-            var bottom = window.innerHeight - PADDLEHEIGHT - PADDLEBOTTOM;
-            if (x > right) {
-                x -= x - right;
-                x_dir *= -1;
-            } else if (x < left) {
-                x -= x - left;
-                x_dir *= -1;
-            }
+            var right = window.innerWidth - WALLHEIGHT - BALLSIZE;
+            var bottom = window.innerHeight - PADDLEHEIGHT - PADDLEBOTTOM - BALLSIZE;
 
-            if (y >= bottom && y_dir > 0) {
-                var paddleLeft = paddle.style('left');
-                if (!slip && (x > paddleLeft) && (x < paddleLeft + PADDLEWIDTH)) {
+            var cooldown = space.time - bounceTime;
 
-                    y -= y - bottom;
-                    y_dir *= -1;
-                    _spinX();
-                } else {
-                    slip = true;
-                    _gameOver();
+            if (cooldown > 500) {
+                if (x > right) {
+                    x -= x - right;
+                    x_dir *= -1;
+                    _startCooldown('right');
+                } else if (x < left) {
+                    x -= x - left;
+                    x_dir *= -1;
+                    _startCooldown('left');
                 }
-            } else if (y < top) {
-                y -= y - top;
-                y_dir *= -1;
+                if (y >= bottom && y_dir > 0) {
+                    var paddleLeft = paddle.style('left');
+                    if (!slip && (x > paddleLeft) && (x < paddleLeft + PADDLEWIDTH)) {
+
+                        y -= y - bottom;
+                        y_dir *= -1;
+                        _startCooldown('paddle');
+                        _spinX();
+                    } else {
+                        slip = true;
+                        _gameOver();
+                    }
+                } else if (y < top) {
+                    y -= y - top;
+                    y_dir *= -1;
+                    _startCooldown('top');
+                }
             }
 
             lastTime = space.time;
@@ -288,7 +313,7 @@ define(function (require, exports, module) {
                 blocks = _.reject(blocks, function (block) {
                     return block.get('hit')
                 });
-                console.log('blocks left: ', blocks.length);
+
                 if (blocks.length <= 1) {
                     _gameOver();
                     goPanel.innerHTML('YOU WIN!')

@@ -69,7 +69,7 @@ describe('SNAPS', function() {
             })
         });
 
-        describe.only('basic box with child box', function() {
+        describe('basic box with child box', function() {
             var domSnap;
             var window, document, space;
             before(function(done) {
