@@ -1964,7 +1964,6 @@ SNAPS.domElement = function (space, i, e, p) {
 };
 
 var DomElement;
-SNAPS.typeAliases.SNAP.push('DOM');
 
 function _makeDom() {
     DomElement = function (space, id, ele, parent) {
@@ -1985,7 +1984,7 @@ function _makeDom() {
         }, this);
         this._element = ele;
         if (parent) {
-            if (parent.$TYPE == 'DOM') {
+            if (parent.$TYPE == DomElement.prototype.$TYPE) {
                 parent.e().appendChild(this.e());
             } else {
                 parent.appendChild(this.e());
@@ -1993,6 +1992,9 @@ function _makeDom() {
         }
 
         this.listen('element', function (element) {
+            if (element && element.$TYPE == DomElement.prototype.$TYPE){
+
+            }
             var addElement = this.get('addElement');
             if (addElement) {
                 if (addElement === true) {
@@ -2005,9 +2007,10 @@ function _makeDom() {
         }, this);
         this.propChangeTerminal.listen('innerhtml', this.h, this)
     };
+    DomElement.prototype.$TYPE = 'DOM';
+    SNAPS.typeAliases.SNAP.push(DomElement.prototype.$TYPE);
 
     DomElement.prototype = Object.create(Snap.prototype);
-    DomElement.prototype.$TYPE = 'DOM';
 
     DomElement.prototype.domNodeName = function () {
         return this.has('tag') ? this.get('tag') : 'div';
@@ -2099,6 +2102,8 @@ function _makeDom() {
     DomElement.prototype.addElement = function (parent) {
         if (!parent) {
             parent = this.space.document.body;
+        } else if (parent.$TYPE == DomElement.prototype.$TYPE){
+            parent = parent.e();
         }
         parent.appendChild(this.e());
         return this;

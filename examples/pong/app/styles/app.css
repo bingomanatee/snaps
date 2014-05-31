@@ -38,22 +38,21 @@ body {
 
 .block {
     background-color: black;
-    border: 2px solid rgb(255, 209, 61);
+    border-right: 2px solid rgba(255, 209, 61, 0.5);
+    border-bottom: 2px solid rgba(255, 209, 61, 0.5);
     color: gray;
     font-size: 25%
 }
 
-.go-panel {
-    background-color: rgb(255, 252, 24);
+.go-panel, .score-panel {
+    background-color: rgb(255, 251, 177);
     text-align: center;
     padding-top: 10px;
     padding-bottom: 10px;
     font-size: 400%;
     font-weight: bold;
-    color: black;
-    font-family: "Helvetica Condensed", Helvetica, Arial, sans-serif;
-    border:
-    1px solid #b59b26;
+    color: #7b0000;
+    font-family: 'VT323', "Helvetica Condensed", Helvetica, Arial, sans-serif;
 }
 
 .panel {
