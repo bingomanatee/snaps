@@ -109,13 +109,15 @@ _updatePhysics = function() {
 
 Snap.prototype.initUpdated = function() {
     this.listen('updated', function(broadcast, edition) {
-        if (!this.active) {
+        if ((!this.active) || (this.simple)) {
             return false;
         }
+
         if (this.blendCount > 0) {
             this.terminal.receptor.updateBlends.dispatch(broadcast, edition);
             this.terminal.receptor.updateProperties.dispatch('blends');
         }
+
         if (this.physicsCount > 0) {
             this.terminal.receptor.updatePhysics.dispatch(broadcast, edition);
         }
@@ -128,7 +130,7 @@ Snap.prototype.initUpdated = function() {
             this.terminal.receptor.updateProperties.dispatch(broadcast, edition);
         }
 
-        if (broadcast) {
+        if (broadcast && this.hasNodeChildren()) {
             var children = this.nodeChildren();
             for (var c = 0; c < children.length; ++c) {
                 children[c].update(broadcast, edition);

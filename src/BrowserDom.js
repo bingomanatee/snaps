@@ -232,6 +232,34 @@ function _makeDom() {
         return false;
     };
 
+    DomElement.prototype.domParentNodes = function() {
+        var myId = this.id;
+        return this.getLinks('node', function(n) {
+            return n.meta == 'dom' && n.snaps[1].id == myId;
+        });
+    };
+
+    DomElement.prototype.domParents = function() {
+        var myId = this.id;
+
+        var links =  this.getLinks('node', function(n) {
+            return n.meta == 'dom' && n.snaps[1].id == myId;
+        });
+        return _.map(links, function(link){
+            return link.snaps[0];
+        })
+    };
+
+    DomElement.prototype.hasDomParents = function() {
+        for (var l = 0; l < this.links.length; ++l) {
+            var link = this.links[l];
+            if (link.linkType == 'node' && link.meta == 'dom' && link.snaps[1].id == this.id) {
+                return true;
+            }
+        }
+        return false;
+    };
+
     /**
      * automatically add 'dom' to the meta property of new links
      * @param dom {DomElement

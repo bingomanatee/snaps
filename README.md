@@ -106,6 +106,13 @@ remote management through pubsub models, web sockets, and other network/service 
 The BrowserDom class is built on Snaps. It uses distinct snaps for elements, attributes, and data. BrowserDom
 objects are not themselves snaps. (this may change).
 
+BrowserDom has no innate abstractions -- you set style properties and attributes of DOM elements, and nest them.
+It is designed to work in an unopiniated way with all the tools DOM has to offer, and to allow you complete access
+to DOM.
+
+However there are utilities that work with the BrowserDom such as the Box model to caluclate layouts based on
+relative position, offsets, etc.
+
 ### Other frameworks
 
 Snaps only understands the DOM elements it creates / is passed; it should be interoperable with any other JS

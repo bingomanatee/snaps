@@ -2,18 +2,18 @@ var should = require('should');
 var SNAPS = require('./../snaps');
 var _ = require('lodash');
 
-describe('SNAPS', function () {
+describe('SNAPS', function() {
 
-    describe('Link', function () {
+    describe('Link', function() {
 
-        describe('#constructor', function () {
+        describe('#constructor', function() {
 
-            describe('semantic', function () {
+            describe('semantic', function() {
                 var space = SNAPS.space();
                 var snap = space.snap();
                 var snap2 = space.snap();
 
-                it('should be able to make a node link ', function () {
+                it('should be able to make a node link ', function() {
 
                     var link = new SNAPS.Link(space, [snap, snap2], 'semantic');
 
@@ -35,12 +35,12 @@ describe('SNAPS', function () {
 
             });
 
-            describe('semantic -- implicit destroy', function () {
+            describe('semantic -- implicit destroy', function() {
                 var space = SNAPS.space();
                 var snap = space.snap();
                 var snap2 = space.snap();
 
-                it('should be able to make a semantic link ', function () {
+                it('should be able to make a semantic link ', function() {
 
                     var link = new SNAPS.Link(space, [snap, snap2], 'semantic');
 
@@ -57,19 +57,19 @@ describe('SNAPS', function () {
                     snap.destroy();
                     link.isValid(true).should.eql('inactive');
 
-                    snap2.getLinks('semantic').map(function(link){
+                    snap2.getLinks('semantic').map(function(link) {
                         return link.identity();
                     }).should.eql([]);
                 });
 
             });
 
-            describe('nodes', function () {
+            describe('nodes', function() {
                 var space = SNAPS.space();
                 var snap = space.snap();
                 var snap2 = space.snap();
 
-                it('should be able to make a node link ', function () {
+                it('should be able to make a node link ', function() {
 
                     var link = new SNAPS.Link(space, [snap, snap2], 'node');
 
@@ -88,12 +88,12 @@ describe('SNAPS', function () {
 
             });
 
-            describe('nodes -- implicit destroy', function () {
+            describe('nodes -- implicit destroy', function() {
                 var space = SNAPS.space();
                 var snap = space.snap();
                 var snap2 = space.snap();
 
-                it('should be able to make a node link ', function () {
+                it('should be able to make a node link ', function() {
 
                     var link = new SNAPS.Link(space, [snap, snap2], 'node');
 
@@ -109,12 +109,12 @@ describe('SNAPS', function () {
 
             });
 
-            describe('sets', function () {
+            describe('sets', function() {
                 var space = SNAPS.space();
                 var snap = space.snap();
                 var snap2 = space.snap();
 
-                it('should be able to make a set link ', function () {
+                it('should be able to make a set link ', function() {
 
                     var link = new SNAPS.Link(space, [snap, snap2], 'set');
 
@@ -133,12 +133,12 @@ describe('SNAPS', function () {
 
             });
 
-            describe('sets -- implicit destroy', function () {
+            describe('sets -- implicit destroy', function() {
                 var space = SNAPS.space();
                 var snap = space.snap();
                 var snap2 = space.snap();
 
-                it('should be able to make a set link which should not implode when empty', function () {
+                it('should be able to make a set link which should not implode when empty', function() {
 
                     var link = new SNAPS.Link(space, [snap, snap2], 'set');
 
@@ -148,7 +148,7 @@ describe('SNAPS', function () {
 
                     snap.destroy();
                     link.isValid(true).should.eql('inactive');
-                    _.map(link.snaps, function(snap){
+                    _.map(link.snaps, function(snap) {
                         return snap.identity();
                     }).should.eql([snap2.identity()]);
 
@@ -164,18 +164,18 @@ describe('SNAPS', function () {
             });
         });
 
-        describe('nodes', function () {
+        describe('nodes', function() {
 
-            describe('parent children', function () {
+            describe('parent children', function() {
 
-                describe('first level children', function () {
+                describe('first level children', function() {
 
                     var space;
                     var snap;
                     var snap2;
                     var snap3;
 
-                    before(function () {
+                    before(function() {
                         space = SNAPS.space();
                         snap = space.snap();
                         snap2 = space.snap();
@@ -184,7 +184,7 @@ describe('SNAPS', function () {
                         snap.link(snap3);
                     });
 
-                    it('should have the expected children', function () {
+                    it('should have the expected children', function() {
                         snap.getLinks('node').length.should.eql(2);
                         var children = snap.nodeChildren();
                         children.length.should.eql(2);
@@ -198,7 +198,7 @@ describe('SNAPS', function () {
                     });
                 });
 
-                describe('multi level gendered children', function () {
+                describe('multi level gendered children', function() {
 
                     var space;
                     var snap;
@@ -208,7 +208,7 @@ describe('SNAPS', function () {
                     var s2Snap2;
                     var s2Snap3;
 
-                    before(function () {
+                    before(function() {
                         space = SNAPS.space();
                         snap = space.snap();
                         snap2 = space.snap();
@@ -239,7 +239,7 @@ describe('SNAPS', function () {
                      * nodes from snap to snap2 doesn't taint the
                      * result of snap2's children.
                      */
-                    it('should have the expected family', function () {
+                    it('should have the expected family', function() {
 
                         snap.nodeFamily().should.eql(
                             {
@@ -271,7 +271,7 @@ describe('SNAPS', function () {
                         );
                     });
                 });
-                describe('multi level children', function () {
+                describe('multi level children', function() {
 
                     var space;
                     var snap;
@@ -281,7 +281,7 @@ describe('SNAPS', function () {
                     var s2Snap2;
                     var s2Snap3;
 
-                    before(function () {
+                    before(function() {
                         space = SNAPS.space();
                         snap = space.snap();
                         snap2 = space.snap();
@@ -312,7 +312,7 @@ describe('SNAPS', function () {
                      * nodes from snap to snap2 doesn't taint the
                      * result of snap2's children.
                      */
-                    it('should have the expected children', function () {
+                    it('should have the expected children', function() {
                         snap.getLinks('node').length.should.eql(2);
                         var children = snap.nodeChildren();
                         children.length.should.eql(2);
@@ -329,8 +329,8 @@ describe('SNAPS', function () {
                         _.sortBy(_.pluck(snap2.nodeSpawn(), 'id'), _.identity).should.eql([  3, 4, 5 ]);
 
                         snap.nodeFamily().should.eql({ id: 0,
-                            children: [
-                                { id: 1, children: [
+                            nodeChild: [
+                                { id: 1, nodeChild: [
                                     { id: 3 },
                                     { id: 4 },
                                     { id: 5 }

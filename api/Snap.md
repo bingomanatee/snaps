@@ -149,10 +149,9 @@ serializes the current property set as an object.
 creates a new link, adding it to this and other linked Snaps' links collections.
 
 * mySnap.link(snap | int)
-* mySnap.link('node', snap | int)
 
 creates a 'node' Snap, with this snap as the parent and the
-passed-in snap as the child.
+passed-in snap as the child. its meta will be 'nodeChild'.
 
 * mySnap.link('semantic', snap | int) or
 * mySnap.link('semantic', metaSnap, snap | int)
@@ -242,8 +241,33 @@ Each value of the object is an object with the following schema:
 #### update(broadcast: boolean, edition:int) : this (Snap)
 
 Applies the pending updates to the object; also updates properties based on any current animations.
-`edition` is meant to track which iteration of update is being executed; if update is being called from
-the Space it will be provided; do not enter it yourself.
+`edition` is meant to track which iteration of update is being executed.
+If update is being called from the Space it will be provided; do not enter it yourself.
+
+The purpose of edition is to ensure that processes for which it is critical that they not occur
+more than once per update cycle have a reference as to which update cycle is underway.
+
+If editiion is not present, then its assumed that the update is "local" (to this snap and its children)
+and an edition will be created for this update cycle.
+
+Update dispatches an 'updated' through the terminal of the snap.
+If for some reason you want complete control over the update process,
+clear the updated listeners from the termianl and add your own listener.
+
+#### (the default listeners to 'updated') (broadcast, edition)
+
+triggers one or more sub-processes in this order:
+
+1. *updateBlends(broadcasdt, edition* (if there are any blends)
+2. *updateProperties('blends')* (if there are any active blends)
+3. *updatePhysics* (todo)
+4. *updateObervers(broadcast, edition)*  (if there are any observers) -- deprecating
+5. *updateProperties(broadcast, edition)* (if there are any pending changes) **this is the place where any
+   property updates are made permanant -- the main point of `update()`. Note it is quite possible that
+   some of the above events may add pending property changes.
+6. *call update(broadcast, edition)* on each nodeChild (if broadcast is true).
+
+note that simple or inactive snaps do not perform any action in the update cycle.
 
 ### Methods: Physics
 

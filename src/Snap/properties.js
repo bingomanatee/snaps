@@ -95,6 +95,14 @@ Snap.prototype.setAndUpdate = function(prop, value) {
     return this;
 };
 
+/**
+ * combines complex data with existing property value
+ *
+ * @param prop {string}
+ * @param value {various}
+ * @param combiner {function} optional == reduces old and new values to gether
+ * @returns {self}
+ */
 Snap.prototype.merge = function(prop, value, combiner) {
     if (!this.has(prop)) {
         return this.set(prop, value);

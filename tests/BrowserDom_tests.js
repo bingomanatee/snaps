@@ -217,7 +217,7 @@ describe('SNAPS', function() {
 
         });
 
-        describe.only('dom children', function() {
+        describe('dom children', function() {
             var space, bd, document, window, div, bd2;
 
             dom.env(
@@ -245,46 +245,46 @@ describe('SNAPS', function() {
                 bd.link(bd2);
                 bd.hasDomChildren().should.eql(true);
                 document.innerHTML.should.eql('<html><body><div class="foo" style="color: rgb(255, 0, 0);"><span>bar</span></div></body></html>');
-
             });
-        describe.only('blocking setting of HTML when domChldren are present', function() {
-            var space, bd, document, window, div, bd2;
 
-            dom.env(
-                '<html><body></body></html>',
-                [],
-                function(errors, w) {
-                    window = w;
-                    document = window.document;
-                    div = document.createElement('div');
-                    var div2 = document.createElement('span');
-                    document.body.appendChild(div);
+            describe('blocking setting of HTML when domChldren are present', function() {
+                var space, bd, document, window, div, bd2;
 
-                    space = SNAPS.space();
-                    bd = space.bd(div, document.body)
-                        .a('class', 'foo')
-                        .s('color', 'rgb(255,0,0)');
-                    bd2 = space.bd(div2, bd)
-                        .html('bar');
-                    bd.link(bd2);
+                dom.env(
+                    '<html><body></body></html>',
+                    [],
+                    function(errors, w) {
+                        window = w;
+                        document = window.document;
+                        div = document.createElement('div');
+                        var div2 = document.createElement('span');
+                        document.body.appendChild(div);
+
+                        space = SNAPS.space();
+                        bd = space.bd(div, document.body)
+                            .a('class', 'foo')
+                            .s('color', 'rgb(255,0,0)');
+                        bd2 = space.bd(div2, bd)
+                            .html('bar');
+                        bd.link(bd2);
+                        space.update();
+                        done();
+                    });
+
+                it('should embed one bd in another', function() {
+                    bd2.innerHTML('a new body'); // we CAN add content to the child node because it itself has no child domNodes.
                     space.update();
-                    done();
+
+                    document.innerHTML.should.eql('<html><body><div class="foo" style="color: rgb(255, 0, 0);"><span>a new body</span></div></body></html>');
+
+                    try {
+                        bd.innerHTML('vey');
+                        ''.should.eql(1); // should not get here
+                    } catch (err) {
+                        err.message.should.eql('innerHTML: cannot add content to a browserDom snap with domChildren');
+                    }
                 });
-
-            it('should embed one bd in another', function() {
-                bd2.innerHTML('a new body'); // we CAN add content to the child node because it itself has no child domNodes.
-                space.update();
-
-                document.innerHTML.should.eql('<html><body><div class="foo" style="color: rgb(255, 0, 0);"><span>a new body</span></div></body></html>');
-
-                try {
-                    bd.innerHTML('vey');
-                    ''.should.eql(1); // should not get here
-                } catch(err){
-                    err.message.should.eql('innerHTML: cannot add content to a browserDom snap with domChildren');
-                }
             });
-        });
         });
     });
 });

@@ -1239,14 +1239,16 @@ Snap.prototype.retireOtherBlends = function (prop) {
 
 Snap.prototype.link = function() {
     var args = _.toArray(arguments);
+    var meta = null;
     var linkType;
     if (typeof(args[0]) == 'string') {
         linkType = args.shift();
     } else {
         linkType = 'node';
+        meta = 'nodeChild';
     }
     args.unshift(this);
-    return new SNAPS.Link(this.space, args, linkType);
+    return new SNAPS.Link(this.space, args, linkType, meta);
 };
 
 Snap.prototype.removeLink = function(link) {
@@ -1312,15 +1314,15 @@ Snap.prototype.nodeParents = function(ids){
 
 Snap.prototype.nodeChildNodes = function() {
     var myId = this.id;
-    return this.getLinks('node', function(n) {
-        return n.snaps[0].id == myId;
+    return this.getLinks('node', function(link) {
+        return link.meta == 'nodeChild' && link.snaps[0].id == myId;
     });
 };
 
 Snap.prototype.hasNodeChildren = function() {
     for (var i = 0; i < this.links.length; ++i) {
         var link = this.links[i];
-        if (link.linkType == 'node' && link.snaps[0].id == this.id) {
+        if (link.linkType == 'node' && link.meta == 'nodeChild' && link.snaps[0].id == this.id) {
             return true;
         }
     }
@@ -1575,6 +1577,14 @@ Snap.prototype.setAndUpdate = function(prop, value) {
     return this;
 };
 
+/**
+ * combines complex data with existing property value
+ *
+ * @param prop {string}
+ * @param value {various}
+ * @param combiner {function} optional == reduces old and new values to gether
+ * @returns {self}
+ */
 Snap.prototype.merge = function(prop, value, combiner) {
     if (!this.has(prop)) {
         return this.set(prop, value);
@@ -1734,13 +1744,15 @@ _updatePhysics = function() {
 
 Snap.prototype.initUpdated = function() {
     this.listen('updated', function(broadcast, edition) {
-        if (!this.active) {
+        if ((!this.active) || (this.simple)) {
             return false;
         }
+
         if (this.blendCount > 0) {
             this.terminal.receptor.updateBlends.dispatch(broadcast, edition);
             this.terminal.receptor.updateProperties.dispatch('blends');
         }
+
         if (this.physicsCount > 0) {
             this.terminal.receptor.updatePhysics.dispatch(broadcast, edition);
         }
@@ -1753,7 +1765,7 @@ Snap.prototype.initUpdated = function() {
             this.terminal.receptor.updateProperties.dispatch(broadcast, edition);
         }
 
-        if (broadcast) {
+        if (broadcast && this.hasNodeChildren()) {
             var children = this.nodeChildren();
             for (var c = 0; c < children.length; ++c) {
                 children[c].update(broadcast, edition);
@@ -2182,6 +2194,34 @@ function _makeDom() {
         return false;
     };
 
+    DomElement.prototype.domParentNodes = function() {
+        var myId = this.id;
+        return this.getLinks('node', function(n) {
+            return n.meta == 'dom' && n.snaps[1].id == myId;
+        });
+    };
+
+    DomElement.prototype.domParents = function() {
+        var myId = this.id;
+
+        var links =  this.getLinks('node', function(n) {
+            return n.meta == 'dom' && n.snaps[1].id == myId;
+        });
+        return _.map(links, function(link){
+            return link.snaps[0];
+        })
+    };
+
+    DomElement.prototype.hasDomParents = function() {
+        for (var l = 0; l < this.links.length; ++l) {
+            var link = this.links[l];
+            if (link.linkType == 'node' && link.meta == 'dom' && link.snaps[1].id == this.id) {
+                return true;
+            }
+        }
+        return false;
+    };
+
     /**
      * automatically add 'dom' to the meta property of new links
      * @param dom {DomElement
@@ -2321,16 +2361,26 @@ function Box(domElement, props) {
 function _sizeToDom(width, height) {
     var de = this.domElement();
 
-    if (width[1] == 'px') {
-        de.setStyle('width', width[0]);
-    } else {
-        de.setStyle('width', width[0] + '%');
+    if (width) {
+        if (typeof width == 'number') {
+            de.setStyle('width', width);
+        } else if (_.isArray(width)) {
+            if (width[1] == 'px') {
+                de.setStyle('width', width[0]);
+            } else {
+                de.setStyle('width', width[0] + '%');
+            }
+        }
     }
 
-    if (height[1] == 'px') {
-        de.setStyle('height', height[0]);
-    } else {
-        de.setStyle('height', height[0] + '%');
+    if (typeof height == 'number') {
+        de.setStyle('height', height);
+    } else if (_.isArray(height)) {
+        if (height[1] == 'px') {
+            de.setStyle('height', height[0]);
+        } else {
+            de.setStyle('height', height[0] + '%');
+        }
     }
 }
 
@@ -2339,7 +2389,6 @@ Box.prototype.$TYPE = 'DOMBOX';
 SNAPS.typeAliases.SNAP.push('DOMBOX');
 
 Box.prototype.resizeBox = function() {
-    debugger;
     this.terminal.dispatch('box', this.boxWidth(), this.boxHeight());
 };
 
@@ -2348,50 +2397,79 @@ Box.prototype.boxHeight = function() {
     if (this.has('height')) {
         return [this.get('height'), 'px'];
     } else if (this.has('heightPercent')) {
-        var parentBox = this.parentBox();
         var pct = this.get('heightPercent');
-        if (parentBox) {
-            var parentBoxHeight = parentBox.boxHeight();
-
-            if (parentBoxHeight[1] == '%') {
-                parentBoxHeight[0] *= pct;
-                return parentBoxHeight;
+        var parentBox = this.parentBox();
+        while (parentBox) {
+            if (parentBox.has('height')) {
+                return parentBox.get('height') * pct / 100;
+            } else if (parentBox.has('heightPercent')) {
+                pct *= parentBox.get('heightPercent') / 100;
+                parentBox = parentBox.parentBox();
+            } else {
+                parentBox = null;
             }
-        } else {
-            return [pct, '%'];
         }
+        return[pct, '%'];
+
+    } else {
+        return [100, '%'];
     }
 };
 
+/**
+ * this method attempts to elicit an absolute size based on nested percents;
+ * if this box is percentage based, the box heritage is recursed until a box with a fixed size
+ * is found and multiplies that absolute size by all the percentages.
+ *
+ * If no absolute sizes are found, the product of all the percents is returned.
+ * @returns {*}
+ */
 Box.prototype.boxWidth = function() {
 
     if (this.has('width')) {
         return [this.get('width'), 'px'];
     } else if (this.has('widthPercent')) {
-        var parentBox = this.parentBox();
         var pct = this.get('widthPercent');
-        if (parentBox) {
-            var parentBoxWidth = parentBox.boxWidth();
-
-            if (parentBoxWidth[1] == '%') {
-                parentBoxWidth[0] *= pct;
-                return parentBoxWidth;
+        var parentBox = this.parentBox();
+        while (parentBox) {
+            if (parentBox.has('width')) {
+                return parentBox.get('width') * pct / 100;
+            } else if (parentBox.has('widthPercent')) {
+                pct *= parentBox.get('widthPercent') / 100;
+                parentBox = parentBox.parentBox();
+            } else {
+                parentBox = null;
             }
-        } else {
-            return [pct, '%'];
         }
+        return[pct, '%'];
+
+    } else {
+        return [100, '%'];
     }
 };
 
+Box.prototype.boxDebug = false;
+
 Box.prototype.parentBox = function() {
     var element = this.domElement();
+    if (this.boxDebug) console.log('parent box for DOM box %s: element = %s', this.id, element ? element.id : '---');
+    if (!element) {
+        throw new Error('no dom element for bos %', this.id);
+    }
     do {
-        var parent = element.nodeParents()[0]; // todo: insulate against multiple parents
+        var parent = element.domParents()[0]; // todo: insulate against multiple parents
+        if (this.boxDebug) console.log('... domParent == %s', parent ? parent.id : '--');
+        if (!parent) {
+            return null;
+        }
         var boxLinks = parent.getLinks('resource', function(link) {
             return link.meta == 'box' && link.snaps[0].id == parent.id;
         });
         if (boxLinks.length > 0) {
+           if(this.boxDebug) console.log('!!! returning parent box %s', boxLinks[0].snaps[1]);
             return boxLinks[0].snaps[1];
+        } else {
+            if (this.boxDebug) console.log(' ... no box found , continue .... ')
         }
     } while (parent);
 

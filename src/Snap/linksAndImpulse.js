@@ -1,13 +1,15 @@
 Snap.prototype.link = function() {
     var args = _.toArray(arguments);
+    var meta = null;
     var linkType;
     if (typeof(args[0]) == 'string') {
         linkType = args.shift();
     } else {
         linkType = 'node';
+        meta = 'nodeChild';
     }
     args.unshift(this);
-    return new SNAPS.Link(this.space, args, linkType);
+    return new SNAPS.Link(this.space, args, linkType, meta);
 };
 
 Snap.prototype.removeLink = function(link) {
@@ -73,15 +75,15 @@ Snap.prototype.nodeParents = function(ids){
 
 Snap.prototype.nodeChildNodes = function() {
     var myId = this.id;
-    return this.getLinks('node', function(n) {
-        return n.snaps[0].id == myId;
+    return this.getLinks('node', function(link) {
+        return link.meta == 'nodeChild' && link.snaps[0].id == myId;
     });
 };
 
 Snap.prototype.hasNodeChildren = function() {
     for (var i = 0; i < this.links.length; ++i) {
         var link = this.links[i];
-        if (link.linkType == 'node' && link.snaps[0].id == this.id) {
+        if (link.linkType == 'node' && link.meta == 'nodeChild' && link.snaps[0].id == this.id) {
             return true;
         }
     }
