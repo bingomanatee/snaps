@@ -9,23 +9,23 @@ function _sizeToDom(width, height) {
 
     if (width) {
         if (typeof width == 'number') {
-            de.setStyle('width', width);
+            de.style('width', width);
         } else if (_.isArray(width)) {
             if (width[1] == 'px') {
-                de.setStyle('width', width[0]);
+                de.style('width', width[0]);
             } else {
-                de.setStyle('width', width[0] + '%');
+                de.style('width', width[0] + '%');
             }
         }
     }
 
     if (typeof height == 'number') {
-        de.setStyle('height', height);
+        de.style('height', height);
     } else if (_.isArray(height)) {
         if (height[1] == 'px') {
-            de.setStyle('height', height[0]);
+            de.style('height', height[0]);
         } else {
-            de.setStyle('height', height[0] + '%');
+            de.style('height', height[0] + '%');
         }
     }
 }

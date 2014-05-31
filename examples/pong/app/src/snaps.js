@@ -1961,13 +1961,13 @@ SNAPS.space = function () {
     return new Space();
 };
 
-Space.prototype.bd = function(ele, parent) {
+Space.prototype.bd = function (ele, parent) {
     var dom = SNAPS.domElement(this, this.snaps.length, ele, parent);
     this.snaps.push(dom);
     return dom;
 };
 
-SNAPS.domElement = function(space, i, e, p) {
+SNAPS.domElement = function (space, i, e, p) {
 
     if (!DomElement) {
         _makeDom();
@@ -1980,7 +1980,7 @@ var DomElement;
 SNAPS.typeAliases.SNAP.push('DOM');
 
 function _makeDom() {
-    DomElement = function(space, id, ele, parent) {
+    DomElement = function (space, id, ele, parent) {
         Snap.call(this, space, id, {});
 
         this.styleSnap = space.snap();
@@ -1993,19 +1993,19 @@ function _makeDom() {
 
         this.attrSnap.listen('updateProperties', _attrSnapChanges, this);
         this.styleSnap.listen('updateProperties', _styleSnapChanges, this);
-        this.propChangeTerminal.listen('innerhtml', function(newContent) {
+        this.propChangeTerminal.listen('innerhtml', function (newContent) {
             this.h(newContent);
         }, this);
         this._element = ele;
-        if (ele && parent) {
+        if (parent) {
             if (parent.$TYPE == 'DOM') {
-                parent.e().appendChild(ele);
+                parent.e().appendChild(this.e());
             } else {
-                parent.appendChild(ele);
+                parent.appendChild(this.e());
             }
         }
 
-        this.listen('element', function(element) {
+        this.listen('element', function (element) {
             var addElement = this.get('addElement');
             if (addElement) {
                 if (addElement === true) {
@@ -2022,12 +2022,12 @@ function _makeDom() {
     DomElement.prototype = Object.create(Snap.prototype);
     DomElement.prototype.$TYPE = 'DOM';
 
-    DomElement.prototype.domNodeName = function() {
+    DomElement.prototype.domNodeName = function () {
         return this.has('tag') ? this.get('tag') : 'div';
     };
 
     //@TODO: is this async?
-    DomElement.prototype.element = DomElement.prototype.e = function() {
+    DomElement.prototype.element = DomElement.prototype.e = function () {
         if (!this._element) {
             if (typeof (document) == 'undefined') {
                 if (this.space.document) {
@@ -2041,7 +2041,7 @@ function _makeDom() {
                     SNAPS.jsdom.env(
                         '<html><body></body></html>',
                         [],
-                        function(errors, w) {
+                        function (errors, w) {
                             window = w;
                             self.space.window = w;
                             self.space.document = window.document;
@@ -2059,33 +2059,57 @@ function _makeDom() {
         return this._element;
     };
 
-    DomElement.prototype.setStyle = function(prop, value) {
+    DomElement.prototype.style = function (prop, value) {
         if (typeof(prop) == 'object') {
             for (var p in prop) {
                 this.styleSnap.set(p, prop[p]);
             }
         } else {
+            if (arguments.length < 2) {
+                return this.styleSnap.get(prop);
+            }
             this.styleSnap.set(prop, value)
         }
         return this;
     };
 
-    DomElement.prototype.innerHTML = function(content) {
-        if (this.hasDomChildren()){
+    DomElement.prototype.contains = function (x, y) {
+        var rect = this.e().getBoundingClientRect();
+
+        return !(x < rect.left || x > rect.right || y < rect.top || y > rect.bottom);
+
+    };
+
+    DomElement.prototype.attr = function (prop, value) {
+        if (typeof(prop) == 'object') {
+            for (var p in prop) {
+                this.attrSnap.set(p, prop[p]);
+            }
+        } else {
+            if (arguments.length < 2) {
+                return this.attrSnap.get(prop);
+            }
+            this.attrSnap.set(prop, value)
+        }
+        return this;
+    };
+
+    DomElement.prototype.innerHTML = function (content) {
+        if (this.hasDomChildren()) {
             throw new Error('innerHTML: cannot add content to a browserDom snap with domChildren');
         }
         this.set('innerhtml', content);
         return this;
     };
 
-    DomElement.prototype.destroy = function() {
+    DomElement.prototype.destroy = function () {
         if (this._element) {
             this.removeElement();
         }
         Snap.prototype.destroy.call(this);
     };
 
-    DomElement.prototype.addElement = function(parent) {
+    DomElement.prototype.addElement = function (parent) {
         if (!parent) {
             parent = this.space.document.body;
         }
@@ -2093,7 +2117,7 @@ function _makeDom() {
         return this;
     };
 
-    DomElement.prototype.h = DomElement.prototype.html = function(innerhtml) {
+    DomElement.prototype.h = DomElement.prototype.html = function (innerhtml) {
         if (arguments.length > 0) {
             if (this.hasDomChildren()) {
                 throw new Error('attempting to add content to a browserDom snap with domChildren');
@@ -2106,7 +2130,7 @@ function _makeDom() {
         }
     };
 
-    DomElement.prototype.a = DomElement.prototype.attr = function(prop, value) {
+    DomElement.prototype.a = function (prop, value) {
 
         if (dataRE.test(prop)) {
             var args = _.toArray(arguments);
@@ -2132,7 +2156,7 @@ function _makeDom() {
      *  -- config, unit
      *
      */
-    DomElement.prototype.s = DomElement.prototype.style = function() {
+    DomElement.prototype.s = function () {
 
         var args = _.toArray(arguments);
         var prop = args[0];
@@ -2165,7 +2189,7 @@ function _makeDom() {
         }
     };
 
-    DomElement.prototype.removeElement = function() {
+    DomElement.prototype.removeElement = function () {
         var parent = this.e().parentNode;
         if (parent) {
             parent.removeChild(this.e());
@@ -2173,19 +2197,19 @@ function _makeDom() {
         return this;
     };
 
-    DomElement.prototype.setDebug = function(d) {
+    DomElement.prototype.setDebug = function (d) {
         this.debug = this.styleSnap.debug = this.attrSnap.debug = d;
         return this;
     };
 
-    DomElement.prototype.domChildrenNodes = function() {
+    DomElement.prototype.domChildrenNodes = function () {
         var myId = this.id;
-        return this.getLinks('node', function(n) {
+        return this.getLinks('node', function (n) {
             return n.meta == 'dom' && n.snaps[0].id == myId;
         });
     };
 
-    DomElement.prototype.hasDomChildren = function() {
+    DomElement.prototype.hasDomChildren = function () {
         for (var l = 0; l < this.links.length; ++l) {
             var link = this.links[l];
             if (link.linkType == 'node' && link.meta == 'dom' && link.snaps[0].id == this.id) {
@@ -2195,25 +2219,25 @@ function _makeDom() {
         return false;
     };
 
-    DomElement.prototype.domParentNodes = function() {
+    DomElement.prototype.domParentNodes = function () {
         var myId = this.id;
-        return this.getLinks('node', function(n) {
+        return this.getLinks('node', function (n) {
             return n.meta == 'dom' && n.snaps[1].id == myId;
         });
     };
 
-    DomElement.prototype.domParents = function() {
+    DomElement.prototype.domParents = function () {
         var myId = this.id;
 
-        var links =  this.getLinks('node', function(n) {
+        var links = this.getLinks('node', function (n) {
             return n.meta == 'dom' && n.snaps[1].id == myId;
         });
-        return _.map(links, function(link){
+        return _.map(links, function (link) {
             return link.snaps[0];
         })
     };
 
-    DomElement.prototype.hasDomParents = function() {
+    DomElement.prototype.hasDomParents = function () {
         for (var l = 0; l < this.links.length; ++l) {
             var link = this.links[l];
             if (link.linkType == 'node' && link.meta == 'dom' && link.snaps[1].id == this.id) {
@@ -2228,14 +2252,13 @@ function _makeDom() {
      * @param dom {DomElement
      * @returns {*}
      */
-    DomElement.prototype.link = function(dom) {
+    DomElement.prototype.link = function (dom) {
         var link;
         if (arguments.length == 1) {
             link = Snap.prototype.link.call(this, dom);
             if (dom.$TYPE == DomElement.prototype.$TYPE) {
                 link.meta = 'dom';
-            }
-            ;
+            };
             this.element.innerHTML = '';
             delete this._props.innerhtml;
             delete this._pendingChanges.innerhtml;
@@ -2253,7 +2276,7 @@ function _makeDom() {
      */
 
     DomElement.prototype.d =
-        DomElement.prototype.data = function() {
+        DomElement.prototype.data = function () {
             var args = _.toArray(arguments);
             var prop = args[0];
             if (typeof(prop) == 'object') {
@@ -2286,7 +2309,7 @@ function _makeDom() {
 
         };
 
-    DomElement.prototype._initDataSnap = function() {
+    DomElement.prototype._initDataSnap = function () {
         this.dataSnap = this.space.snap();
         var i, attrs, l;
         for (i = 0, attrs = this.e().attributes, l = attrs.length; i < l; i++) {
@@ -2297,7 +2320,7 @@ function _makeDom() {
         }
     };
 
-    DomElement.prototype.addBox = function(props) {
+    DomElement.prototype.addBox = function (props) {
         var box = new Box(this, props);
         this.link('resource', box).meta = 'box';
         box.resizeBox();
@@ -2364,23 +2387,23 @@ function _sizeToDom(width, height) {
 
     if (width) {
         if (typeof width == 'number') {
-            de.setStyle('width', width);
+            de.style('width', width);
         } else if (_.isArray(width)) {
             if (width[1] == 'px') {
-                de.setStyle('width', width[0]);
+                de.style('width', width[0]);
             } else {
-                de.setStyle('width', width[0] + '%');
+                de.style('width', width[0] + '%');
             }
         }
     }
 
     if (typeof height == 'number') {
-        de.setStyle('height', height);
+        de.style('height', height);
     } else if (_.isArray(height)) {
         if (height[1] == 'px') {
-            de.setStyle('height', height[0]);
+            de.style('height', height[0]);
         } else {
-            de.setStyle('height', height[0] + '%');
+            de.style('height', height[0] + '%');
         }
     }
 }
