@@ -6,3 +6,27 @@ html {
   -webkit-backface-visibility: visible;
   backface-visibility: visible;
 }
+
+* {
+    padding: 0;
+    margin: 0;
+}
+
+.abs {
+    position: absolute;
+}
+
+.back {
+    background-color: rgb(255, 209, 61)
+}
+
+.wall {
+    background-color: rgb(123, 0, 0)
+}
+
+.ball {
+    background-color: #1e1719;
+}
+body {
+    overflow: hidden;
+}
