@@ -129,15 +129,40 @@ I use the following dependent libraries to drive Snaps.
 * **check-types** (included) for type checking
 * **Tween.js** (included) for easing functions
 * **signals** (loaded seperately) for events
+
+### developer dependencies
 * **Grunt** (as a developer dependency) for building and keeping examples up to date
 * **famous-generator** for building examples (and then I gut out the famo.us bits)
 * **Mocha** for testing
 * **WebStorm** (my IDE) for CI and general awesomeness (Grunt launching, test running).
 
--------------
+# Notes
 
-Example: inheritance
+## browser compatibility
 
+SNAPS uses very timeworn systems for setting browser properties. There are only about six styles
+that are used explicitly: width, height, left, right, top, bottom.
+
+The style and attribute methods used to get and set element styles and attributes:
+
+* element.innerHTML
+* element.getAttribute(prop)
+* element.setAttribute(prop, value)
+* element.style[prop] = value
+* (get) element.style[prop]
+
+This puts the ball somewhat in the developers' court to maintain usability across the platforms he wishes to target.
+
+That being said the minimum commitment is for IE 9+, Chrome, Firefox and whatever stupid browser Apple uses to be
+fully usable with SNAPS.
+
+While positional utilities are provided (via box) the user is free to use other positional systems they like
+-- matrices, margin/padding, etc.
+
+Theo point of SNAPS is not to enforce a pattern of DOM management but to offer 360 degrees of freedom re: element
+management and to set up some utilities to enhance common practices.
+
+## Example: inheritance
 
 ### example
 
