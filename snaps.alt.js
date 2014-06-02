@@ -704,28 +704,39 @@ SNAPS.Link.prototype.grow = function(snap) {
     this.snaps.push(SPACE.assert.$TYPE(snap, 'SNAP'));
     return this;
 };
+SNAPS.Link.prototype.hasSnap = function(snap) {
+    var id = SNAPS.isSnap(snap) ? snap.id :  snap;
+
+    for (var s = 0; s < this.snaps.length; ++s){
+        if (this.snaps[s].id == id) return true;
+    }
+    return false;
+};
+
 SNAPS.Link.prototype.removeSnap = function(snap) {
+    var hasSnap = false;
+    var id = snap.id;
+    for (var s = 0; (!hasSnap) && s < this.snaps.length; ++s){
+        if (this.snaps[s].id == id) hasSnap = true;
+    }
+    if (!hasSnap) return;
+
     switch (this.linkType) {
         case 'node':
-            return this.destroy();
+               return this.destroy();
             break;
 
         case 'resource':
-            if (this.snaps[0].id == snap.id) {
-                return this.destroy();
-            }
+            return this.destroy();
             break;
         case 'semantic':
-            if (this.snaps[0].id == snap.id) {
-                return this.destroy();
-            }
-
+            return this.destroy();
             break;
     }
     this.snaps = _.reject(this.snaps, function(s) {
-        return s.id == snap.id;
+        return s.id == id;
     });
-}
+};
 
 SNAPS.Link.prototype.identity = function() {
     var out = _.pick(this, 'id', 'active', 'snaps', '$TYPE');
@@ -1513,7 +1524,7 @@ Snap.prototype.has = function(prop, my) {
 
 Snap.prototype.set = function(prop, value, immediate) {
     if (this.debug){
-        console.log('snap %s setting %s to %s', this.id, prop, _.isObject(value) ? JSON.stringify(value) : value);
+        console.log("snap %s setting %s to %s \n", this.id, prop, _.isObject(value) ? JSON.stringify(value) : value);
     }
     if (this.simple) {
         this._props[prop] = value;
@@ -2612,12 +2623,16 @@ Box.prototype.boxWidth = function () {
 
 Box.prototype.boxDebug = false;
 
-//@TODO: denormalize getLinks for performance
+
 DomElement.prototype.getBox = function () {
-    var boxLinks = this.getLinks('resource', function (link) {
-        return link.meta == 'box' && link.snaps[0].id == this.id;
-    });
-    return boxLinks.length > 0 ? boxLinks[0].snaps[1] : null;
+    for (var l = 0; l < this.links.length; ++ l){
+        var link = this.links[l];
+        if (link.active && link.linkType == 'resource' && link.meta == 'box' && link.active){
+
+            return link.snaps[1];
+        }
+    }
+    return null;
 };
 
 Box.prototype.parentBox = function(){
@@ -2625,32 +2640,37 @@ Box.prototype.parentBox = function(){
     if (!element){
         throw "Box has no DomElement";
     }
-    // if (this.boxDebug) console.log('parent box for DOM box %s: element = %s', this.id, element ? element.id : '---');
+     if (this.boxDebug) console.log('parent box for DOM box %s: element = %s', this.id, element ? element.id : '---');
 
     while (element) {
+        debugger;
         var parent = element.domParents()[0]; // todo: insulate against multiple parents
-        //  if (this.boxDebug) console.log('... domParent == %s', parent ? parent.id : '--');
+
         if (!parent) {
+            if (this.boxDebug) console.log('... element %s has no parent', element.id);
             return null;
         }
         var box = parent.getBox();
         if (box) {
+            if (this.boxDebug) console.log('... element %s box == %s', parent.id, box.id);
             return box;
         } else {
+            if (this.boxDebug) console.log('... element has no box');
             element = parent;
         }
     }
+    if (this.boxDebug) console.log('... element %s has no parent box found', this.id);
 
     return null;
 };
 
 DomElement.prototype.parentBox = function () {
     var element = this;
-    // if (this.boxDebug) console.log('parent box for DOM box %s: element = %s', this.id, element ? element.id : '---');
+     if (this.boxDebug) console.log('parent box for DOM box %s: element = %s', this.id, element ? element.id : '---');
 
     while (element) {
         var parent = element.domParents()[0]; // todo: insulate against multiple parents
-        //  if (this.boxDebug) console.log('... domParent == %s', parent ? parent.id : '--');
+          if (this.boxDebug) console.log('... domParent == %s', parent ? parent.id : '--');
         if (!parent) {
             return null;
         }

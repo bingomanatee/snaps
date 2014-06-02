@@ -87,13 +87,12 @@ describe('SNAPS', function() {
 
                         domSnap = space.bd(document.createElement('div'), document.body);
                         var childSnap = space.bd(document.createElement('div'), domSnap).innerHTML('i have my own box');
-                        domSnap.link(childSnap);
                         domSnap.setDebug(true);
                         domSnap.addBox({width: 500, height: 300});
                         childSnap.addBox({widthPercent: 50, heightPercent: 75});
                         space.update();
 
-                      //  console.log('family: %s', JSON.stringify(domSnap.nodeFamily(), true , 3));
+                        console.log('family: %s', JSON.stringify(domSnap.nodeFamily(), true , 3));
 
                         done();
                     }

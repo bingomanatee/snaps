@@ -212,28 +212,39 @@ SNAPS.Link.prototype.grow = function(snap) {
     this.snaps.push(SPACE.assert.$TYPE(snap, 'SNAP'));
     return this;
 };
+SNAPS.Link.prototype.hasSnap = function(snap) {
+    var id = SNAPS.isSnap(snap) ? snap.id :  snap;
+
+    for (var s = 0; s < this.snaps.length; ++s){
+        if (this.snaps[s].id == id) return true;
+    }
+    return false;
+};
+
 SNAPS.Link.prototype.removeSnap = function(snap) {
+    var hasSnap = false;
+    var id = snap.id;
+    for (var s = 0; (!hasSnap) && s < this.snaps.length; ++s){
+        if (this.snaps[s].id == id) hasSnap = true;
+    }
+    if (!hasSnap) return;
+
     switch (this.linkType) {
         case 'node':
-            return this.destroy();
+               return this.destroy();
             break;
 
         case 'resource':
-            if (this.snaps[0].id == snap.id) {
-                return this.destroy();
-            }
+            return this.destroy();
             break;
         case 'semantic':
-            if (this.snaps[0].id == snap.id) {
-                return this.destroy();
-            }
-
+            return this.destroy();
             break;
     }
     this.snaps = _.reject(this.snaps, function(s) {
-        return s.id == snap.id;
+        return s.id == id;
     });
-}
+};
 
 SNAPS.Link.prototype.identity = function() {
     var out = _.pick(this, 'id', 'active', 'snaps', '$TYPE');

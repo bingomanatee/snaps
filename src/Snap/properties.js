@@ -4,7 +4,7 @@ Snap.prototype.has = function(prop, my) {
 
 Snap.prototype.set = function(prop, value, immediate) {
     if (this.debug){
-        console.log('snap %s setting %s to %s', this.id, prop, _.isObject(value) ? JSON.stringify(value) : value);
+        console.log("snap %s setting %s to %s \n", this.id, prop, _.isObject(value) ? JSON.stringify(value) : value);
     }
     if (this.simple) {
         this._props[prop] = value;

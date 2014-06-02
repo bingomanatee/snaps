@@ -134,31 +134,52 @@ describe('SNAPS', function() {
             });
 
             describe('sets -- implicit destroy', function() {
-                var space = SNAPS.space();
-                var snap = space.snap();
-                var snap2 = space.snap();
+                var space;
+                var snap ;
+                var snap2;
+                var snap3;
+                var snap4;
+
+                before(function(){
+                    space = SNAPS.space();
+                    snap = space.snap();
+                    snap2 = space.snap();
+                    snap3 = space.snap();
+                    snap4 = space.snap();
+                });
 
                 it('should be able to make a set link which should not implode when empty', function() {
 
-                    var link = new SNAPS.Link(space, [snap, snap2], 'set');
+                    var setLink = new SNAPS.Link(space, [snap, snap2], 'set');
+                    var resLink = snap.link('resource', snap3);
+                    var nodeLink = snap.link(snap4);
 
-                    link.linkType.should.eql('set');
-                    link.active.should.eql(true);
-                    link.isValid().should.eql(true);
+                    setLink.linkType.should.eql('set');
+                    resLink.linkType.should.eql('resource');
+                    nodeLink.linkType.should.eql('node');
+
+                    setLink.active.should.eql(true);
+                    setLink.isValid().should.eql(true);
 
                     snap.destroy();
-                    link.isValid(true).should.eql('inactive');
-                    _.map(link.snaps, function(snap) {
+                    setLink.isValid(true).should.eql(true); // a set is not destroyed when one of its members is removed.
+                    setLink.snaps.length.should.eql(1);
+
+                    resLink.isValid(true).should.eql('inactive'); // resource links are destroyed when either of its members is removed
+                    nodeLink.isValid(true).should.eql('inactive'); // node links are destroyed when either of its members is removed.
+
+                    _.map(setLink.snaps, function(snap) {
                         return snap.identity();
                     }).should.eql([snap2.identity()]);
 
                     snap2.getLinks('set').map(function(link) {
                         return link.identity();
-                    }).should.eql([link.identity()]);
+                    }).should.eql([setLink.identity()]);
 
                     snap2.destroy();
-                    link.isValid(true).should.eql('inactive');
-                    link.active.should.eql(false);
+                    setLink.isValid(true).should.eql(true); // a set can be emptied of all members;
+                    setLink.snaps.length.should.eql(0);
+                    setLink.active.should.eql(true);
                 })
 
             });
