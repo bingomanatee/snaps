@@ -1,4 +1,4 @@
-module.exports = function(grunt) {
+module.exports = function (grunt) {
 
     grunt.initConfig({
         concat: {
@@ -20,7 +20,7 @@ module.exports = function(grunt) {
                         'src/Space.js',
                         'src/BrowserDom.js',
                         'src/BrowserDom/*.js',
-                    'src/Box.js']
+                        'src/Box.js']
                 }
             }
         },

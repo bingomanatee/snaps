@@ -4,8 +4,14 @@ function Box(domElement, props) {
     this.terminal.listen('updateProperties', this.resizeBox, this);
 }
 
+DomElement.prototype.addBox = function (props) {
+    var box = new Box(this, props);
+    this.link('resource', box).meta = 'box';
+    box.resizeBox();
+};
+
 function _sizeToDom(width, height) {
-    var de = this.domElement();
+    var de = this.boxDomElement();
 
     if (width) {
         if (typeof width == 'number') {
@@ -34,11 +40,11 @@ Box.prototype = Object.create(Snap.prototype);
 Box.prototype.$TYPE = 'DOMBOX';
 SNAPS.typeAliases.SNAP.push('DOMBOX');
 
-Box.prototype.resizeBox = function() {
+Box.prototype.resizeBox = function () {
     this.terminal.dispatch('box', this.boxWidth(), this.boxHeight());
 };
 
-Box.prototype.boxHeight = function() {
+Box.prototype.boxHeight = function () {
 
     if (this.has('height')) {
         return [this.get('height'), 'px'];
@@ -70,7 +76,7 @@ Box.prototype.boxHeight = function() {
  * If no absolute sizes are found, the product of all the percents is returned.
  * @returns {*}
  */
-Box.prototype.boxWidth = function() {
+Box.prototype.boxWidth = function () {
 
     if (this.has('width')) {
         return [this.get('width'), 'px'];
@@ -96,35 +102,67 @@ Box.prototype.boxWidth = function() {
 
 Box.prototype.boxDebug = false;
 
-Box.prototype.parentBox = function() {
-    var element = this.domElement();
-    if (this.boxDebug) console.log('parent box for DOM box %s: element = %s', this.id, element ? element.id : '---');
-    if (!element) {
-        throw new Error('no dom element for bos %', this.id);
+//@TODO: denormalize getLinks for performance
+DomElement.prototype.getBox = function () {
+    var boxLinks = this.getLinks('resource', function (link) {
+        return link.meta == 'box' && link.snaps[0].id == this.id;
+    });
+    return boxLinks.length > 0 ? boxLinks[0].snaps[1] : null;
+};
+
+Box.prototype.parentBox = function(){
+    var element = this.boxDomElement();
+    if (!element){
+        throw "Box has no DomElement";
     }
-    do {
+    // if (this.boxDebug) console.log('parent box for DOM box %s: element = %s', this.id, element ? element.id : '---');
+
+    while (element) {
         var parent = element.domParents()[0]; // todo: insulate against multiple parents
-        if (this.boxDebug) console.log('... domParent == %s', parent ? parent.id : '--');
+        //  if (this.boxDebug) console.log('... domParent == %s', parent ? parent.id : '--');
         if (!parent) {
             return null;
         }
-        var boxLinks = parent.getLinks('resource', function(link) {
-            return link.meta == 'box' && link.snaps[0].id == parent.id;
-        });
-        if (boxLinks.length > 0) {
-           if(this.boxDebug) console.log('!!! returning parent box %s', boxLinks[0].snaps[1]);
-            return boxLinks[0].snaps[1];
+        var box = parent.getBox();
+        if (box) {
+            return box;
         } else {
-            if (this.boxDebug) console.log(' ... no box found , continue .... ')
+            element = parent;
         }
-    } while (parent);
+    }
 
     return null;
 };
 
-Box.prototype.domElement = function() {
+DomElement.prototype.parentBox = function () {
+    var element = this;
+    // if (this.boxDebug) console.log('parent box for DOM box %s: element = %s', this.id, element ? element.id : '---');
+
+    while (element) {
+        var parent = element.domParents()[0]; // todo: insulate against multiple parents
+        //  if (this.boxDebug) console.log('... domParent == %s', parent ? parent.id : '--');
+        if (!parent) {
+            return null;
+        }
+        var box = parent.getBox();
+        if (box) {
+            return box;
+        } else {
+            element = parent;
+        }
+    }
+
+    return null;
+};
+
+/**
+ * the resource parent == the element the box is attempting to define a size for.
+ * @returns {*}
+ */
+
+Box.prototype.boxDomElement = function () {
     var id = this.id;
-    var domLinks = this.getLinks('resource', function(link) {
+    var domLinks = this.getLinks('resource', function (link) {
         return link.meta == 'box' && link.snaps[1].id == id;
     });
 
