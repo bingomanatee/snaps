@@ -1029,6 +1029,186 @@ SNAPS.Observer.prototype.applyTime = function (target) {
         this.handler.call(target, progress);
     }
 }
+var Space = function () {
+    this.id = 1;
+    this.snaps = [];
+    this.resetTime();
+    this.edition = 0;
+    this.editionStarted = 0;
+    this.editionCompleted = 0;
+    this.benchmarking = false;
+    this.benchmarks = [];
+};
+
+Space.prototype.$TYPE = 'SPACE';
+
+Space.prototype.count = function () {
+    return this.snaps.length;
+};
+
+Space.prototype.resetTime = function () {
+    this.start = new Date().getTime();
+    this.time = 0;
+};
+
+Space.prototype.setTime = function (n) {
+    this.time = n;
+    return this;
+};
+
+/**
+ * deprecated - more efficient to do this inside link
+ * ensures every snap in a link knows about the link
+ * @param snap
+ * @param link
+ */
+Space.prototype.addLink = function (snap, link) {
+    if (!snap.simple) {
+        snap.addLink(link);
+    }
+};
+
+/**
+ * deprecated -- more efficient to do this directy inside the link
+ * @param link
+ */
+Space.prototype.removeLink = function (link) {
+    _.each(link.snaps, function (snap) {
+        if ((!snap.simple)) {
+            snap.removeLink(link);
+        }
+    }, this);
+};
+
+/**
+ * this is a heavily overloaded function
+ *
+ *  -- with no arguments: returns a new Snap
+ *  -- if is a number: returns existing Snap by ID
+ *  -- if is true: returns a new "simple" Snap
+ *  -- if is object: returns a new Snap with a preset property list.
+ *
+ * @param input
+ * @returns {*}
+ */
+Space.prototype.snap = function (input) {
+    var snap;
+
+    if (arguments.length) {
+        if (_.isObject(input)) {
+            snap = new Snap(this, this.snaps.length, input);
+            this.snaps.push(snap);
+        } else if (input === true) {
+            snap = new Snap(this, this.snaps.length, {simple: true});
+            this.snaps.push(snap);
+        } else {
+            snap = this.snaps[input] || SNAPS.INVALID_SNAP_ID;
+        }
+    } else {
+        snap = new Snap(this, this.snaps.length);
+        this.snaps.push(snap);
+    }
+    return snap;
+};
+
+Space.prototype.hasSnap = function (snap, onlyIfActive) {
+
+    if (typeof snap == 'object') {
+        if (snap.space !== this) {
+            return false;
+        }
+    }
+    var id = SNAPS.assert.toId(snap, 'SNAP');
+
+    if (id >= this.snaps.length) {
+        console.log('unregistered snap detected: %s', snap);
+        return false;
+    }
+    if (onlyIfActive) {
+        return this.snaps[id].active;
+    } else {
+        return true;
+    }
+};
+
+Space.prototype.nextTime = function () {
+    this.time = new Date().getTime() - this.start;
+    return this.time;
+};
+
+Space.prototype.isUpdating = function () {
+    return this.editionStarted > this.editionCompleted;
+};
+
+Space.prototype.startEdition = function (requestor) {
+    if (this.benchmarking){
+        var t = new Date().getTime();
+        var data = [requestor, t, t - this.startTime, this.time];
+    }
+
+    if (this.isUpdating()){
+        throw new Error('attempting to start an edition during the updating cycle');
+    }
+
+     this.editionStarted = ++this.edition;
+    if (this.benchmarking){
+        this.benchmarks[this.edition] = data;
+    }
+
+    return this.editionStarted;
+};
+
+Space.prototype.endEdition = function (currentEd) {
+    if (currentEd != this.editionStarted){
+        console.log('edition versions mismatch at endEdition: %s, %s', currentEd, this.editionStarted);
+        return;
+    }
+    this.editionCompleted = this.editionStarted;
+    if (this.benchmarking){
+        var t = new Date().getTime();
+        this.benchmarks[this.editionStarted].push(t, t - this.startTime);
+    }
+};
+
+Space.prototype.update = function (next) {
+    if (next) {
+        this.nextTime();
+    }
+
+    var currentEd = this.startEdition();
+
+    var i;
+    var snap;
+
+    var updatedSnaps = [];
+
+    var l = this.snaps.length;
+
+    for (i = 0; i < l; ++i) {
+        snap = this.snaps[i];
+        if (snap.active && (!snap.simple)) {
+            if (snap.hasPendingChanges() || snap.blendCount > 0){
+              //  console.log('queueing for update: ', snap);
+                updatedSnaps.push(snap);
+            }
+            snap.update(null, currentEd);
+        }
+    }
+
+    l = updatedSnaps.length;
+
+    for (i = 0; i < l; ++i) {
+        snap = updatedSnaps[i];
+        snap.dispatch('output');
+    }
+
+    this.endEdition(currentEd);
+};
+
+SNAPS.space = function () {
+    return new Space();
+};
+
 /**
  * A Snap ("Synapse") is a collection of properties,
  * related to other Snaps through relationships.
@@ -1153,7 +1333,6 @@ Snap.prototype.updateBlends = function () {
         return semLink.get('meta') == 'blend';
     });
 
-
     var blendValues = {};
 
     var time = this.space.time;
@@ -1248,7 +1427,7 @@ Snap.prototype.retireOtherBlends = function (prop) {
 
 };
 
-Snap.prototype.link = function () {
+Snap.prototype.link = function() {
     var args = _.toArray(arguments);
     var meta = null;
     var linkType;
@@ -1262,23 +1441,23 @@ Snap.prototype.link = function () {
     return new SNAPS.Link(this.space, args, linkType, meta);
 };
 
-Snap.prototype.removeLink = function (link) {
+Snap.prototype.removeLink = function(link) {
     if (this.simple || (!this.links.length)) {
         return;
     }
     var linkId = isNaN(link) ? link.id : link;
 
-    this.links = _.reject(this.links, function (link) {
+    this.links = _.reject(this.links, function(link) {
         return link.inactive || (link.id == linkId);
     });
     return this
 };
 
-Snap.prototype.addLink = function (link) {
+Snap.prototype.addLink = function(link) {
     if (this.simple) {
         return;
     }
-    if (!_.find(this.links, function (l) {
+    if (!_.find(this.links, function(l) {
         return l.id == link.id
     })) {
         this.links.push(link);
@@ -1297,7 +1476,7 @@ Snap.prototype.addLink = function (link) {
  * @param filter {function} (optional) a sub-criteria fro which links you want to get.
  * @returns {Array}
  */
-Snap.prototype.getLinks = function (linkType, filter) {
+Snap.prototype.getLinks = function(linkType, filter) {
     var out = [];
     if (!this.simple) { // simple elements have no links
         var l;
@@ -1320,7 +1499,7 @@ Snap.prototype.getLinks = function (linkType, filter) {
     return out;
 };
 
-Snap.prototype.nodeChildren = function (ids) {
+Snap.prototype.nodeChildren = function(ids) {
     var children = [];
     for (var i = 0; i < this.links.length; ++i) {
         var link = this.links[i];
@@ -1331,17 +1510,17 @@ Snap.prototype.nodeChildren = function (ids) {
     return children;
 };
 
-Snap.prototype.nodeParentNodes = function () {
+Snap.prototype.nodeParentNodes = function() {
     var myId = this.id;
-    return this.getLinks('node', function (n) {
+    return this.getLinks('node', function(n) {
         return n.snaps[1].id == myId;
     });
 };
 
-Snap.prototype.nodeParents = function (ids) {
+Snap.prototype.nodeParents = function(ids) {
     var nodes = this.nodeParentNodes();
 
-    return _.reduce(nodes, function (o, link) {
+    return _.reduce(nodes, function(o, link) {
         if (link.snaps[1].active) {
             o.push(ids ? link.snaps[0].id : link.snaps[0]);
         }
@@ -1349,14 +1528,14 @@ Snap.prototype.nodeParents = function (ids) {
     }, []);
 };
 
-Snap.prototype.nodeChildNodes = function () {
+Snap.prototype.nodeChildNodes = function() {
     var myId = this.id;
-    return this.getLinks('node', function (link) {
+    return this.getLinks('node', function(link) {
         return link.meta == 'nodeChild' && link.snaps[0].id == myId;
     });
 };
 
-Snap.prototype.hasNodeChildren = function () {
+Snap.prototype.hasNodeChildren = function() {
     for (var i = 0; i < this.links.length; ++i) {
         var link = this.links[i];
         if (link.linkType == 'node' && link.meta == 'nodeChild' && link.snaps[0].id == this.id) {
@@ -1367,7 +1546,7 @@ Snap.prototype.hasNodeChildren = function () {
     return false;
 };
 
-Snap.prototype.nodeSpawn = function () {
+Snap.prototype.nodeSpawn = function() {
     var children = this.nodeChildren();
 
     var leafs = [];
@@ -1397,14 +1576,14 @@ Snap.prototype.nodeSpawn = function () {
 
 };
 
-Snap.prototype.nodeFamily = function () {
+Snap.prototype.nodeFamily = function() {
 
     var id = this.id;
     var out = {
         id: id
     };
 
-    var childLinks = this.getLinks('node', function (link) {
+    var childLinks = this.getLinks('node', function(link) {
         return link.snaps[0].id == id;
     });
 
@@ -1428,7 +1607,7 @@ Snap.prototype.nodeFamily = function () {
     return out;
 };
 
-Snap.prototype.impulse = function (message, linkType, props, meta) {
+Snap.prototype.impulse = function(message, linkType, props, meta) {
     SNAPS.impulse(this, message, linkType, props, meta);
 
     return this;
@@ -1439,7 +1618,7 @@ Snap.prototype.impulse = function (message, linkType, props, meta) {
  * links all the children of this snap to its parent(s) if any
  * and destroys its node links.
  */
-Snap.prototype.unparent = function () {
+Snap.prototype.unparent = function() {
     if (this.simple) {
         return;
     }
@@ -1471,6 +1650,15 @@ Snap.prototype.unparent = function () {
     }
 
     return this;
+};
+
+Snap.prototype.resParent = function(link) {
+    for (var l = 0; l < this.links.length; ++l) {
+        if (this.links[l].linkType == 'resource' && (this.id == this.links[l].snaps[1].id)) {
+            return link ? this.links[l] : this.links[l].snaps[0];
+        }
+    }
+    return false;
 };
 
 /**
@@ -1817,186 +2005,6 @@ Snap.prototype.initUpdated = function() {
 
 };
 
-var Space = function () {
-    this.id = 1;
-    this.snaps = [];
-    this.resetTime();
-    this.edition = 0;
-    this.editionStarted = 0;
-    this.editionCompleted = 0;
-    this.benchmarking = false;
-    this.benchmarks = [];
-};
-
-Space.prototype.$TYPE = 'SPACE';
-
-Space.prototype.count = function () {
-    return this.snaps.length;
-};
-
-Space.prototype.resetTime = function () {
-    this.start = new Date().getTime();
-    this.time = 0;
-};
-
-Space.prototype.setTime = function (n) {
-    this.time = n;
-    return this;
-};
-
-/**
- * deprecated - more efficient to do this inside link
- * ensures every snap in a link knows about the link
- * @param snap
- * @param link
- */
-Space.prototype.addLink = function (snap, link) {
-    if (!snap.simple) {
-        snap.addLink(link);
-    }
-};
-
-/**
- * deprecated -- more efficient to do this directy inside the link
- * @param link
- */
-Space.prototype.removeLink = function (link) {
-    _.each(link.snaps, function (snap) {
-        if ((!snap.simple)) {
-            snap.removeLink(link);
-        }
-    }, this);
-};
-
-/**
- * this is a heavily overloaded function
- *
- *  -- with no arguments: returns a new Snap
- *  -- if is a number: returns existing Snap by ID
- *  -- if is true: returns a new "simple" Snap
- *  -- if is object: returns a new Snap with a preset property list.
- *
- * @param input
- * @returns {*}
- */
-Space.prototype.snap = function (input) {
-    var snap;
-
-    if (arguments.length) {
-        if (_.isObject(input)) {
-            snap = new Snap(this, this.snaps.length, input);
-            this.snaps.push(snap);
-        } else if (input === true) {
-            snap = new Snap(this, this.snaps.length, {simple: true});
-            this.snaps.push(snap);
-        } else {
-            snap = this.snaps[input] || SNAPS.INVALID_SNAP_ID;
-        }
-    } else {
-        snap = new Snap(this, this.snaps.length);
-        this.snaps.push(snap);
-    }
-    return snap;
-};
-
-Space.prototype.hasSnap = function (snap, onlyIfActive) {
-
-    if (typeof snap == 'object') {
-        if (snap.space !== this) {
-            return false;
-        }
-    }
-    var id = SNAPS.assert.toId(snap, 'SNAP');
-
-    if (id >= this.snaps.length) {
-        console.log('unregistered snap detected: %s', snap);
-        return false;
-    }
-    if (onlyIfActive) {
-        return this.snaps[id].active;
-    } else {
-        return true;
-    }
-};
-
-Space.prototype.nextTime = function () {
-    this.time = new Date().getTime() - this.start;
-    return this.time;
-};
-
-Space.prototype.isUpdating = function () {
-    return this.editionStarted > this.editionCompleted;
-};
-
-Space.prototype.startEdition = function (requestor) {
-    if (this.benchmarking){
-        var t = new Date().getTime();
-        var data = [requestor, t, t - this.startTime, this.time];
-    }
-
-    if (this.isUpdating()){
-        throw new Error('attempting to start an edition during the updating cycle');
-    }
-
-     this.editionStarted = ++this.edition;
-    if (this.benchmarking){
-        this.benchmarks[this.edition] = data;
-    }
-
-    return this.editionStarted;
-};
-
-Space.prototype.endEdition = function (currentEd) {
-    if (currentEd != this.editionStarted){
-        console.log('edition versions mismatch at endEdition: %s, %s', currentEd, this.editionStarted);
-        return;
-    }
-    this.editionCompleted = this.editionStarted;
-    if (this.benchmarking){
-        var t = new Date().getTime();
-        this.benchmarks[this.editionStarted].push(t, t - this.startTime);
-    }
-};
-
-Space.prototype.update = function (next) {
-    if (next) {
-        this.nextTime();
-    }
-
-    var currentEd = this.startEdition();
-
-    var i;
-    var snap;
-
-    var updatedSnaps = [];
-
-    var l = this.snaps.length;
-
-    for (i = 0; i < l; ++i) {
-        snap = this.snaps[i];
-        if (snap.active && (!snap.simple)) {
-            if (snap.hasPendingChanges() || snap.blendCount > 0){
-              //  console.log('queueing for update: ', snap);
-                updatedSnaps.push(snap);
-            }
-            snap.update(null, currentEd);
-        }
-    }
-
-    l = updatedSnaps.length;
-
-    for (i = 0; i < l; ++i) {
-        snap = updatedSnaps[i];
-        snap.dispatch('output');
-    }
-
-    this.endEdition(currentEd);
-};
-
-SNAPS.space = function () {
-    return new Space();
-};
-
 Space.prototype.bd = function (ele, parent) {
     var dom = SNAPS.boxDomElement(this, this.snaps.length, ele, parent);
     this.snaps.push(dom);
@@ -2158,8 +2166,8 @@ DomElement.prototype.element = DomElement.prototype.e = function () {
     if (!this._element) {
         if (typeof (document) == 'undefined') {
             if (this.space.document) {
-                this.element = this.space.document.createElement(this.domNodeName());
-                this.dispatch('element', this.element);
+                this._element = this.space.document.createElement(this.domNodeName());
+                this.dispatch('element', this._element);
             } else {
                 // this may not work if env is async....
                 SNAPS.jsdom = require('jsdom');
@@ -2518,185 +2526,92 @@ var _pxProps = _.reduce('border-bottom-width,border-left-width,border-radius,bor
         return out;
     }, {});
 
-function Box(domElement, props) {
-    Snap.call(this, domElement.space, domElement.space.snaps.length, props);
-    this.terminal.listen('box', _sizeToDom, this);
-    this.terminal.listen('updateProperties', this.resizeBox, this);
-}
+var pxRE = /([\d.]+)px/;
+var pctRE = /([\d.]+)%/;
 
-DomElement.prototype.addBox = function (props) {
-    var box = new Box(this, props);
-    this.link('resource', box).meta = 'box';
-    box.resizeBox();
+Space.prototype.size = function(input, unit) {
+    var size = new Size(this, this.snaps.length, input, unit);
+    this.snaps.push(size);
+    return size;
 };
 
-function _sizeToDom(width, height) {
-    var de = this.boxDomElement();
+DomElement.prototype.size = function(sizeName, value, unit) {
 
-    if (width) {
-        if (typeof width == 'number') {
-            de.style('width', width);
-        } else if (_.isArray(width)) {
-            if (width[1] == 'px') {
-                de.style('width', width[0]);
-            } else {
-                de.style('width', width[0] + '%');
-            }
-        }
-    }
-
-    if (typeof height == 'number') {
-        de.style('height', height);
-    } else if (_.isArray(height)) {
-        if (height[1] == 'px') {
-            de.style('height', height[0]);
-        } else {
-            de.style('height', height[0] + '%');
-        }
-    }
-}
-
-Box.prototype = Object.create(Snap.prototype);
-Box.prototype.$TYPE = 'DOMBOX';
-SNAPS.typeAliases.SNAP.push('DOMBOX');
-
-Box.prototype.resizeBox = function () {
-    this.terminal.dispatch('box', this.boxWidth(), this.boxHeight());
-};
-
-Box.prototype.boxHeight = function () {
-
-    if (this.has('height')) {
-        return [this.get('height'), 'px'];
-    } else if (this.has('heightPercent')) {
-        var pct = this.get('heightPercent');
-        var parentBox = this.parentBox();
-        while (parentBox) {
-            if (parentBox.has('height')) {
-                return parentBox.get('height') * pct / 100;
-            } else if (parentBox.has('heightPercent')) {
-                pct *= parentBox.get('heightPercent') / 100;
-                parentBox = parentBox.parentBox();
-            } else {
-                parentBox = null;
-            }
-        }
-        return[pct, '%'];
-
-    } else {
-        return [100, '%'];
-    }
+    var size = this.space.size(value, unit);
+    this.link('resource', size).meta = sizeName;
 };
 
 /**
- * this method attempts to elicit an absolute size based on nested percents;
- * if this box is percentage based, the box heritage is recursed until a box with a fixed size
- * is found and multiplies that absolute size by all the percentages.
  *
- * If no absolute sizes are found, the product of all the percents is returned.
- * @returns {*}
+ * Represents a blendable, unit-conscious measurement, for width and height.
+ *
+ * note - the "block" value determines whether this measurement is in place;
+ *      if false is set, no value will be shown for this property in the style.
+ *
+ * the 'value' property is a numeric and can be blended.
+ *
+ * @param space {Space}
+ * @param id {int}
+ * @param input {variant} number or size string('200px', '100%')
+ * @param unit {string} (optional) '%' or 'px'
+ * @constructor
  */
-Box.prototype.boxWidth = function () {
+function Size(space, id, input, unit) {
+    Snap.call(this, space, id);
 
-    if (this.has('width')) {
-        return [this.get('width'), 'px'];
-    } else if (this.has('widthPercent')) {
-        var pct = this.get('widthPercent');
-        var parentBox = this.parentBox();
-        while (parentBox) {
-            if (parentBox.has('width')) {
-                return parentBox.get('width') * pct / 100;
-            } else if (parentBox.has('widthPercent')) {
-                pct *= parentBox.get('widthPercent') / 100;
-                parentBox = parentBox.parentBox();
-            } else {
-                parentBox = null;
-            }
+    this.listen('updateProperties', _updateSize, this);
+
+    this.set('block', true);
+    if (input === false) {
+        this.set('block', false);
+    } else if (unit) {
+        this.set('value', input);
+        this.set('unit', unit);
+    } else if (typeof input == 'number') {
+        this.set('unit', 'px');
+        this.set('value', input);
+    } else if (typeof input == 'string') {
+        if (pctRE.test(input)) {
+            this.set('unit', '%');
+            this.set('value', pctRE.exec(input)[1]);
+        } else if (pxRE.test(input)) {
+            this.set('unit', 'px');
+            this.set('value', parseFloat(pxRE.exec(input)[1]));
+        } else {
+            this.set('unit', 'px');
+            this.set('value', parseFloat(input));
         }
-        return[pct, '%'];
-
     } else {
-        return [100, '%'];
+        throw new Error('cannot parse input');
+    }
+}
+
+Size.prototype = Object.create(Snap.prototype);
+
+Size.prototype.size = function(value) {
+    if (!this.get('block')) {
+        return null;
+    } else if (value) {
+        return this.get('value');
+    } else {
+        return this.get('value') + this.get('unit');
     }
 };
 
-Box.prototype.boxDebug = false;
+SNAPS.Size = Size;
 
+function _updateSize() {
+    var parentLink = this.resParent(true);
+    if (!parentLink) return;
+    var parentSnap = parentLink.snaps[0];
 
-DomElement.prototype.getBox = function () {
-    for (var l = 0; l < this.links.length; ++ l){
-        var link = this.links[l];
-        if (link.active && link.linkType == 'resource' && link.meta == 'box' && link.active){
-
-            return link.snaps[1];
-        }
-    }
-    return null;
-};
-
-Box.prototype.parentBox = function(){
-    var element = this.boxDomElement();
-    if (!element){
-        throw "Box has no DomElement";
-    }
-     if (this.boxDebug) console.log('parent box for DOM box %s: element = %s', this.id, element ? element.id : '---');
-
-    while (element) {
-        debugger;
-        var parent = element.domParents()[0]; // todo: insulate against multiple parents
-
-        if (!parent) {
-            if (this.boxDebug) console.log('... element %s has no parent', element.id);
-            return null;
-        }
-        var box = parent.getBox();
-        if (box) {
-            if (this.boxDebug) console.log('... element %s box == %s', parent.id, box.id);
-            return box;
-        } else {
-            if (this.boxDebug) console.log('... element has no box');
-            element = parent;
-        }
-    }
-    if (this.boxDebug) console.log('... element %s has no parent box found', this.id);
-
-    return null;
-};
-
-DomElement.prototype.parentBox = function () {
-    var element = this;
-     if (this.boxDebug) console.log('parent box for DOM box %s: element = %s', this.id, element ? element.id : '---');
-
-    while (element) {
-        var parent = element.domParents()[0]; // todo: insulate against multiple parents
-          if (this.boxDebug) console.log('... domParent == %s', parent ? parent.id : '--');
-        if (!parent) {
-            return null;
-        }
-        var box = parent.getBox();
-        if (box) {
-            return box;
-        } else {
-            element = parent;
-        }
+    if (this.get('block')) {
+        parentSnap.s(parentLink.meta, this.get('value'), this.get('unit'));
+    } else {
+        parentSnap.s(parentLink.meta, SNAPS.DELETE);
     }
 
-    return null;
-};
-
-/**
- * the resource parent == the element the box is attempting to define a size for.
- * @returns {*}
- */
-
-Box.prototype.boxDomElement = function () {
-    var id = this.id;
-    var domLinks = this.getLinks('resource', function (link) {
-        return link.meta == 'box' && link.snaps[1].id == id;
-    });
-
-    return domLinks[0].snaps[0];
-};
+}
 
 
 return SNAPS;

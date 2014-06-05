@@ -110,9 +110,15 @@ describe('SNAPS', function() {
             });
 
             describe('sets', function() {
-                var space = SNAPS.space();
-                var snap = space.snap();
-                var snap2 = space.snap();
+                var space;
+                var snap;
+                var snap2;
+
+                before(function() {
+                    space = SNAPS.space();
+                    snap = space.snap();
+                    snap2 = space.snap();
+                });
 
                 it('should be able to make a set link ', function() {
 
@@ -135,12 +141,12 @@ describe('SNAPS', function() {
 
             describe('sets -- implicit destroy', function() {
                 var space;
-                var snap ;
+                var snap;
                 var snap2;
                 var snap3;
                 var snap4;
 
-                before(function(){
+                before(function() {
                     space = SNAPS.space();
                     snap = space.snap();
                     snap2 = space.snap();
@@ -183,6 +189,24 @@ describe('SNAPS', function() {
                 })
 
             });
+
+            describe('resource', function() {
+
+                var space;
+                var snap;
+                var snap2;
+
+                before(function() {
+                    space = SNAPS.space();
+                    snap = space.snap();
+                    snap2 = space.snap();
+                    snap.link('resource', snap2).meta = 'foo';
+                });
+
+                it('should be able to get parent of resource', function(){
+                    snap2.resParent().should.eql(snap);
+                })
+            })
         });
 
         describe('nodes', function() {

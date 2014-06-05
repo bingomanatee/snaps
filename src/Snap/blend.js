@@ -5,7 +5,6 @@ Snap.prototype.updateBlends = function () {
         return semLink.get('meta') == 'blend';
     });
 
-
     var blendValues = {};
 
     var time = this.space.time;

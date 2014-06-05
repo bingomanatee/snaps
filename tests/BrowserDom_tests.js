@@ -20,6 +20,7 @@ describe('SNAPS', function() {
                         window = w;
                         document = window.document;
                         div = document.createElement('div');
+                        div.style['width'] = '50%';
                         document.body.appendChild(div);
                         done();
                     }
@@ -27,11 +28,11 @@ describe('SNAPS', function() {
             });
 
             it('should be in document', function() {
-                document.outerHTML.should.eql('<html><body><div></div></body></html>');
+                document.outerHTML.should.eql('<html><body><div style="width: 50%;"></div></body></html>');
             });
 
             it('should render div', function() {
-                div.outerHTML.should.eql('<div></div>')
+                div.outerHTML.should.eql('<div style="width: 50%;"></div>')
             });
 
         });

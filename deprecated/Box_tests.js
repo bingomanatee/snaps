@@ -4,7 +4,7 @@ var _ = require('lodash');
 var dom = require('jsdom');
 var util = require('util');
 
-describe('SNAPS', function() {
+describe.skip('SNAPS', function() {
     describe('Box', function() {
         describe('basic box', function() {
             var domSnap;

@@ -159,8 +159,8 @@ DomElement.prototype.element = DomElement.prototype.e = function () {
     if (!this._element) {
         if (typeof (document) == 'undefined') {
             if (this.space.document) {
-                this.element = this.space.document.createElement(this.domNodeName());
-                this.dispatch('element', this.element);
+                this._element = this.space.document.createElement(this.domNodeName());
+                this.dispatch('element', this._element);
             } else {
                 // this may not work if env is async....
                 SNAPS.jsdom = require('jsdom');

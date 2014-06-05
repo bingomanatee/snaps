@@ -8,6 +8,7 @@ DomElement.prototype.addBox = function (props) {
     var box = new Box(this, props);
     this.link('resource', box).meta = 'box';
     box.resizeBox();
+    return box;
 };
 
 function _sizeToDom(width, height) {
@@ -122,7 +123,6 @@ Box.prototype.parentBox = function(){
      if (this.boxDebug) console.log('parent box for DOM box %s: element = %s', this.id, element ? element.id : '---');
 
     while (element) {
-        debugger;
         var parent = element.domParents()[0]; // todo: insulate against multiple parents
 
         if (!parent) {

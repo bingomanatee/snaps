@@ -15,12 +15,13 @@ module.exports = function (grunt) {
                         'src/ease.js',
                         'src/Observer.js',
                         'src/rate.js',
+                        'src/Space.js',
                         'src/Snap.js',
                         'src/Snap/*.js',
-                        'src/Space.js',
                         'src/BrowserDom.js',
                         'src/BrowserDom/*.js',
-                        'src/Box.js']
+                        'src/Size.js'
+                    ]
                 }
             }
         },
