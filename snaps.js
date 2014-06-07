@@ -1478,19 +1478,20 @@ Snap.prototype.addLink = function(link) {
  */
 Snap.prototype.getLinks = function(linkType, filter) {
     var out = [];
+    var link;
     if (!this.simple) { // simple elements have no links
         var l;
-        if (!filter) {
+        if (filter) {
             for (l = 0; l < this.links.length; ++l) {
-                var link = this.links[l];
-                if (link.active && (link.linkType == linkType)) {
+                link = this.links[l];
+                if (link.active && (link.linkType == linkType) && filter(link, l)) {
                     out.push(link);
                 }
             }
         } else {
             for (l = 0; l < this.links.length; ++l) {
-                var link = this.links[l];
-                if (link.active && (link.linkType == linkType) && filter(link, l)) {
+                link = this.links[l];
+                if (link.active && (link.linkType == linkType)) {
                     out.push(link);
                 }
             }
@@ -2573,7 +2574,7 @@ function Size(space, id, input, unit) {
     } else if (typeof input == 'string') {
         if (pctRE.test(input)) {
             this.set('unit', '%');
-            this.set('value', pctRE.exec(input)[1]);
+            this.set('value', parseFloat(pctRE.exec(input)[1]));
         } else if (pxRE.test(input)) {
             this.set('unit', 'px');
             this.set('value', parseFloat(pxRE.exec(input)[1]));

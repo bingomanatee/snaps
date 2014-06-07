@@ -376,7 +376,10 @@ DomElement.prototype.domParentNodes = function () {
     });
 };
 
-DomElement.prototype.domParents = function () {
+DomElement.prototype.domParent = function () {
+    return this.domParents()[0];
+}
+    DomElement.prototype.domParents = function () {
     var myId = this.id;
 
     var links = this.getLinks('node', function (n) {

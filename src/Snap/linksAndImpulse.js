@@ -49,19 +49,20 @@ Snap.prototype.addLink = function(link) {
  */
 Snap.prototype.getLinks = function(linkType, filter) {
     var out = [];
+    var link;
     if (!this.simple) { // simple elements have no links
         var l;
-        if (!filter) {
+        if (filter) {
             for (l = 0; l < this.links.length; ++l) {
-                var link = this.links[l];
-                if (link.active && (link.linkType == linkType)) {
+                link = this.links[l];
+                if (link.active && (link.linkType == linkType) && filter(link, l)) {
                     out.push(link);
                 }
             }
         } else {
             for (l = 0; l < this.links.length; ++l) {
-                var link = this.links[l];
-                if (link.active && (link.linkType == linkType) && filter(link, l)) {
+                link = this.links[l];
+                if (link.active && (link.linkType == linkType)) {
                     out.push(link);
                 }
             }

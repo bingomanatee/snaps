@@ -81,7 +81,7 @@ describe('SNAPS', function() {
         })
     });
 
-    describe('assigned property', function() {
+    describe('assigned property - percent', function() {
         describe('basic box', function() {
             var domSnap;
             var window, document, space;
@@ -102,7 +102,7 @@ describe('SNAPS', function() {
                 );
             });
 
-            describe('inital content%', function() {
+            describe('initial content%', function() {
                 it('should have html', function() {
                     document.innerHTML.should.eql('<html><body><div></div></body></html>');
                 });
@@ -117,4 +117,158 @@ describe('SNAPS', function() {
             })
         });
     });
+    describe('assigned property - percent string', function() {
+        describe('basic box', function() {
+            var domSnap;
+            var window, document, space;
+            before(function(done) {
+                dom.env(
+                    '<html><body></body></html>',
+                    [],
+                    function(errors, w) {
+                        window = w;
+                        document = window.document;
+
+                        space = SNAPS.space();
+                        space.document = document;
+
+                        domSnap = space.bd().addElement();
+                        done();
+                    }
+                );
+            });
+
+            describe('initial content%', function() {
+                it('should have html', function() {
+                    document.innerHTML.should.eql('<html><body><div></div></body></html>');
+                });
+            });
+
+            describe('width = 50%', function() {
+                it('should assign 50% width to domSnap', function() {
+                    domSnap.size('width', '50%');
+                    space.update();
+                    document.innerHTML.should.eql('<html><body><div style="width: 50%;"></div></body></html>');
+                });
+            })
+        });
+    });
+
+    describe('assigned property - pixels', function() {
+        describe('basic box', function() {
+            var domSnap;
+            var window, document, space;
+            before(function(done) {
+                dom.env(
+                    '<html><body></body></html>',
+                    [],
+                    function(errors, w) {
+                        window = w;
+                        document = window.document;
+
+                        space = SNAPS.space();
+                        space.document = document;
+
+                        domSnap = space.bd().addElement();
+                        done();
+                    }
+                );
+            });
+
+            describe('initial content%', function() {
+                it('should have html', function() {
+                    document.innerHTML.should.eql('<html><body><div></div></body></html>');
+                });
+            });
+
+            describe('width = 50px', function() {
+                it('should assign 50px width to domSnap', function() {
+                    domSnap.size('width', 50, 'px');
+                    space.update();
+                    document.innerHTML.should.eql('<html><body><div style="width: 50px;"></div></body></html>');
+                });
+            })
+        });
+    });
+    describe('assigned property - pixels string', function() {
+        describe('basic box', function() {
+            var domSnap;
+            var window, document, space;
+            before(function(done) {
+                dom.env(
+                    '<html><body></body></html>',
+                    [],
+                    function(errors, w) {
+                        window = w;
+                        document = window.document;
+
+                        space = SNAPS.space();
+                        space.document = document;
+
+                        domSnap = space.bd().addElement();
+                        done();
+                    }
+                );
+            });
+
+            describe('initial content px', function() {
+                it('should have html', function() {
+                    document.innerHTML.should.eql('<html><body><div></div></body></html>');
+                });
+            });
+
+            describe('width = 50px', function() {
+                it('should assign 50px width to domSnap', function() {
+                    domSnap.size('width', '50px');
+                    space.update();
+                    document.innerHTML.should.eql('<html><body><div style="width: 50px;"></div></body></html>');
+                });
+            })
+        });
+    });
+
+    describe('inheritance', function(){
+
+        describe('pixels parent, percent child', function() {
+            describe('basic box', function() {
+                var domSnap, domChildSnap;
+                var window, document, space;
+                before(function(done) {
+                    dom.env(
+                        '<html><body></body></html>',
+                        [],
+                        function(errors, w) {
+                            window = w;
+                            document = window.document;
+
+                            space = SNAPS.space();
+                            space.document = document;
+
+                            domSnap = space.bd().addElement();
+
+                            domChildSnap = space.bd(null, domSnap);
+                            done();
+                        }
+                    );
+                });
+
+                describe('initial content%', function() {
+                    it('should have html', function() {
+                        document.innerHTML.should.eql('<html><body><div><div></div></div></body></html>');
+                    });
+                });
+
+                describe('width = 50px', function() {
+                    it('should assign 50px width to domSnap', function() {
+                        domSnap.size('width', 200, 'px');
+                        domChildSnap.size('width', 50, '%');
+                        space.update();
+                        document.innerHTML.should.eql('<html><body><div style="width: 200px;"><div style="width: 50%;"></div></div></body></html>');
+                    });
+                })
+            });
+        });
+
+
+    })
 });
