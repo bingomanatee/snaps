@@ -82,19 +82,21 @@ Terminal.prototype.checkWhat = function (what, doErr) {
 Terminal.prototype.listen = function () {
     var args = _.toArray(arguments);
     var what = SNAPS.assert.notempty(args.shift(), 'string');
+    var receptor;
 
-    this.checkWhat(what, true);
-
-    if (!this.receptor[what]) {
-        this.receptor[what] = new signals.Signal();
+    if (!this.checkWhat(what, true)) {
+        this.receptor[what] = receptor = new signals.Signal();
+    }else {
+        receptor = this.receptor[what];
     }
 
     if (check.array(args[0])) {
-        this.receptor[what].add.apply(this.receptor[what], args[0]);
+        var fn = SNAPS.assert.fn(args[0][0]);
+        receptor.add.apply(receptor, args[0]);
     } else {
-        this.receptor[what].add.apply(this.receptor[what], args);
+        var fn = SNAPS.assert.fn(args[0]);
+        receptor.add.apply(receptor, args);
     }
-
 };
 
 Terminal.prototype.dispatch = function () {

@@ -52,7 +52,7 @@ function Snap(space, id, props) {
 
     this.propChangeTerminal = new Terminal();
 
-    this.terminal = new Terminal({inherit: [[this.inherit, this]]});
+    this.terminal = new Terminal({inherit: [[Snap.prototype.inherit, this]]});
 
     /**
      * collection of links that include this snap.

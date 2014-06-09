@@ -3,14 +3,13 @@ Snap.prototype.has = function(prop, my) {
 };
 
 Snap.prototype.set = function(prop, value, immediate) {
-    if (this.debug) {
-        console.log("snap %s setting %s to %s \n", this.id, prop, _.isObject(value) ? JSON.stringify(value) : value);
-    }
     if (this.simple) {
         this._props[prop] = value;
         return this;
     }
-    this.retireOtherBlends(prop);
+    if (this.blendCount > 0){
+        this.retireOtherBlends(prop);
+    }
     this._myProps[prop] = value;
 
     if (this.space.editionStarted > this.space.editionCompleted) {

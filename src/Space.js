@@ -16,6 +16,18 @@ Space.prototype.count = function () {
     return this.snaps.length;
 };
 
+Space.prototype.setWindow = function (window) {
+    this.window = window;
+    this.document = window.document;
+    window.addEventListener('resize', function(){
+        console.log('resizing');
+        this.terminal.dispatch('resize', {
+            width: window.innerWidth,
+            height: window.innerHeight
+        });
+    }.bind(this))
+};
+
 Space.prototype.resetTime = function () {
     this.start = new Date().getTime();
     this.time = 0;
@@ -111,17 +123,17 @@ Space.prototype.isUpdating = function () {
 };
 
 Space.prototype.startEdition = function (requestor) {
-    if (this.benchmarking){
+    if (this.benchmarking) {
         var t = new Date().getTime();
         var data = [requestor, t, t - this.startTime, this.time];
     }
 
-    if (this.isUpdating()){
+    if (this.isUpdating()) {
         throw new Error('attempting to start an edition during the updating cycle');
     }
 
-     this.editionStarted = ++this.edition;
-    if (this.benchmarking){
+    this.editionStarted = ++this.edition;
+    if (this.benchmarking) {
         this.benchmarks[this.edition] = data;
     }
 
@@ -129,12 +141,12 @@ Space.prototype.startEdition = function (requestor) {
 };
 
 Space.prototype.endEdition = function (currentEd) {
-    if (currentEd != this.editionStarted){
+    if (currentEd != this.editionStarted) {
         console.log('edition versions mismatch at endEdition: %s, %s', currentEd, this.editionStarted);
         return;
     }
     this.editionCompleted = this.editionStarted;
-    if (this.benchmarking){
+    if (this.benchmarking) {
         var t = new Date().getTime();
         this.benchmarks[this.editionStarted].push(t, t - this.startTime);
     }
@@ -157,8 +169,8 @@ Space.prototype.update = function (next) {
     for (i = 0; i < l; ++i) {
         snap = this.snaps[i];
         if (snap.active && (!snap.simple)) {
-            if (snap.hasPendingChanges() || snap.blendCount > 0){
-              //  console.log('queueing for update: ', snap);
+            if (snap.hasPendingChanges() || snap.blendCount > 0) {
+                console.log('queueing for update: ', snap);
                 updatedSnaps.push(snap);
             }
             snap.update(null, currentEd);

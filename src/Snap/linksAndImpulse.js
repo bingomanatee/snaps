@@ -34,7 +34,18 @@ Snap.prototype.addLink = function (link) {
         this.links.push(link);
     }
 };
-Snap.prototype.linksFrom = function (linkType, filter, meta) {
+Snap.prototype.getLinksTo = function (linkType, filter, meta) {
+    var links = this.getLinks(linkType, filter, meta);
+    var out= [];
+    for(var l = 0; l < links.length; ++l){
+        if (links[l].snaps[1].id == this.id){
+            out.push(links[0]);
+        }
+    }
+    return out;
+};
+
+Snap.prototype.getLinksFrom = function (linkType, filter, meta) {
     var links = this.getLinks(linkType, filter, meta);
     var out= [];
     for(var l = 0; l < links.length; ++l){
@@ -271,6 +282,11 @@ Snap.prototype.resParent = function (link) {
     return false;
 };
 
+/**
+ * Sends a miessage to the terminal of this node and all its children
+ * @param message
+ * @param data
+ */
 Snap.prototype.nodeBroadcast = function(message, data){
     var snaps = [this];
 

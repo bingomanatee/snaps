@@ -82,12 +82,7 @@ describe('SNAPS', function() {
         })
     });
 
-<<<<<<< HEAD
-    describe.only('assigned property', function() {
-        // analzying size/dom interaction.
-=======
     describe('assigned property - percent', function() {
->>>>>>> 454d196b7e326f06077a9bbe393e057ac0d5cc91
         describe('basic box', function() {
             var domSnap;
             var window, document, space;
@@ -140,12 +135,12 @@ describe('SNAPS', function() {
                 dom.env(
                     '<html><body></body></html>',
                     [],
-                    function(errors, w) {
-                        window = w;
-                        document = window.document;
+                    function(errors, window) {
 
+                        window.innerWidth = 1024;
+                        window.innerHeight = 768;
                         space = SNAPS.space();
-                        space.document = document;
+                        space.setWindow(window);
 
                         domSnap = space.bd().addElement();
                         done();
@@ -159,11 +154,20 @@ describe('SNAPS', function() {
                 });
             });
 
-            describe('width = 50%', function() {
-                it('should assign 50% width to domSnap', function() {
+            describe.only('width = 512ps', function() {
+                it('should translate the requested 50% width to to a pixel size', function() {
                     domSnap.size('width', '50%');
                     space.update();
-                    document.innerHTML.should.eql('<html><body><div style="width: 50%;"></div></body></html>');
+                    space.document.innerHTML.should.eql('<html><body><div style="width: 512px;"></div></body></html>');
+                    space.window.innerWidth = 800;
+                    var ev = space.document.createEvent("HTMLEvents", 'resize');
+                    // manually triggering a resize
+                    domSnap.terminal.dispatch('resize', {
+                        width: space.window.innerWidth,
+                        height: space.window.innerHeight
+                    });
+                    space.update();
+                    space.document.innerHTML.should.eql('<html><body><div style="width: 400px;"></div></body></html>');
                 });
             })
         });
@@ -273,7 +277,7 @@ describe('SNAPS', function() {
                     });
                 });
 
-                describe('width = 50px', function() {
+                describe('width = 50%', function() {
                     it('should assign 50px width to domSnap', function() {
                         domSnap.size('width', 200, 'px');
                         domChildSnap.size('width', 50, '%');

@@ -124,13 +124,13 @@ var DomElement = function (space, id, ele, parent) {
     this.styleSnap = space.snap();
     this.link('resource', this.styleSnap).meta = 'style';
     // although this is referenced as a direct property we add it to the links to enable cascading delete
+    this.styleSnap.listen('updateProperties', _styleSnapChanges, this);
 
     this.attrSnap = space.snap();
     this.link('resource', this.attrSnap).meta = 'attr';
     // although this is referenced as a direct property we add it to the links to enable cascading delete
-
     this.attrSnap.listen('updateProperties', _attrSnapChanges, this);
-    this.styleSnap.listen('updateProperties', _styleSnapChanges, this);
+
     this.propChangeTerminal.listen('innerhtml', function (newContent) {
         this.h(newContent);
     }, this);
@@ -207,10 +207,9 @@ DomElement.prototype.style = function (prop, value) {
         for (var p in prop) {
             this.styleSnap.set(p, prop[p]);
         }
+    } else if (arguments.length < 2) {
+        return this.styleSnap.get(prop);
     } else {
-        if (arguments.length < 2) {
-            return this.styleSnap.get(prop);
-        }
         this.styleSnap.set(prop, value)
     }
     return this;
@@ -523,6 +522,8 @@ DomElement.prototype._initDataSnap = function () {
 
 function _styleSnapChanges () {
     var state = this.styleSnap.state();
+    console.log('setting style to ', require('util').inspect('state'));
+    debugger;
     this.s(state);
 }
 
@@ -542,6 +543,8 @@ function _attrSnapChanges () {
  * iteratively recursing through the DomElement tree, sending the message/data to the terminals of each DomElement
  * @param message
  * @param data
+ *
+ * note - this method is a derecursed tree walk == could use some unit testing to validate integrity
  */
 Snap.prototype.domBroadcast = function (message, data) {
     var snaps = [this];
@@ -549,7 +552,9 @@ Snap.prototype.domBroadcast = function (message, data) {
     while (snaps.length) {
         var snap = snaps.shift(snaps);
         snap.terminal.dispatch(message, data);
-        snaps.unshift.apply(snaps, this.domChildren());
+        if (snap.hasDomChildren ()) {
+            snaps.unshift.apply(snaps, snap.domChildren());
+        }
     }
 };
 
@@ -558,10 +563,8 @@ Space.prototype.domBroadcast = function (message, data) {
     for (var s = 0; s < this.snaps.length; ++s) {
         var snap = this.snaps[s];
 
-        if (snap.$TYPE == DomElement.prototype.$TYPE) {
-            if (!snap.hasDomParents()) {
-                snap.domBroadcast(message, data);
-            }
+        if (snap.$TYPE == DomElement.prototype.$TYPE && !snap.hasDomParent()) {
+            snap.domBroadcast(message, data);
         }
     }
 

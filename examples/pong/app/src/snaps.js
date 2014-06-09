@@ -128,19 +128,21 @@ Terminal.prototype.checkWhat = function (what, doErr) {
 Terminal.prototype.listen = function () {
     var args = _.toArray(arguments);
     var what = SNAPS.assert.notempty(args.shift(), 'string');
+    var receptor;
 
-    this.checkWhat(what, true);
-
-    if (!this.receptor[what]) {
-        this.receptor[what] = new signals.Signal();
+    if (!this.checkWhat(what, true)) {
+        this.receptor[what] = receptor = new signals.Signal();
+    }else {
+        receptor = this.receptor[what];
     }
 
     if (check.array(args[0])) {
-        this.receptor[what].add.apply(this.receptor[what], args[0]);
+        var fn = SNAPS.assert.fn(args[0][0]);
+        receptor.add.apply(receptor, args[0]);
     } else {
-        this.receptor[what].add.apply(this.receptor[what], args);
+        var fn = SNAPS.assert.fn(args[0]);
+        receptor.add.apply(receptor, args);
     }
-
 };
 
 Terminal.prototype.dispatch = function () {
@@ -163,6 +165,7 @@ Terminal.prototype.dispatch = function () {
 };
 
 SNAPS.Terminal = Terminal;
+
 
 /**
  * taken from node module check-types
@@ -1048,6 +1051,18 @@ Space.prototype.count = function () {
     return this.snaps.length;
 };
 
+Space.prototype.setWindow = function (window) {
+    this.window = window;
+    this.document = window.document;
+    window.addEventListener('resize', function(){
+        console.log('resizing');
+        this.terminal.dispatch('resize', {
+            width: window.innerWidth,
+            height: window.innerHeight
+        });
+    }.bind(this))
+};
+
 Space.prototype.resetTime = function () {
     this.start = new Date().getTime();
     this.time = 0;
@@ -1143,17 +1158,17 @@ Space.prototype.isUpdating = function () {
 };
 
 Space.prototype.startEdition = function (requestor) {
-    if (this.benchmarking){
+    if (this.benchmarking) {
         var t = new Date().getTime();
         var data = [requestor, t, t - this.startTime, this.time];
     }
 
-    if (this.isUpdating()){
+    if (this.isUpdating()) {
         throw new Error('attempting to start an edition during the updating cycle');
     }
 
-     this.editionStarted = ++this.edition;
-    if (this.benchmarking){
+    this.editionStarted = ++this.edition;
+    if (this.benchmarking) {
         this.benchmarks[this.edition] = data;
     }
 
@@ -1161,12 +1176,12 @@ Space.prototype.startEdition = function (requestor) {
 };
 
 Space.prototype.endEdition = function (currentEd) {
-    if (currentEd != this.editionStarted){
+    if (currentEd != this.editionStarted) {
         console.log('edition versions mismatch at endEdition: %s, %s', currentEd, this.editionStarted);
         return;
     }
     this.editionCompleted = this.editionStarted;
-    if (this.benchmarking){
+    if (this.benchmarking) {
         var t = new Date().getTime();
         this.benchmarks[this.editionStarted].push(t, t - this.startTime);
     }
@@ -1189,8 +1204,8 @@ Space.prototype.update = function (next) {
     for (i = 0; i < l; ++i) {
         snap = this.snaps[i];
         if (snap.active && (!snap.simple)) {
-            if (snap.hasPendingChanges() || snap.blendCount > 0){
-              //  console.log('queueing for update: ', snap);
+            if (snap.hasPendingChanges() || snap.blendCount > 0) {
+                //  console.log('queueing for update: ', snap);
                 updatedSnaps.push(snap);
             }
             snap.update(null, currentEd);
@@ -1265,7 +1280,7 @@ function Snap(space, id, props) {
 
     this.propChangeTerminal = new Terminal();
 
-    this.terminal = new Terminal({inherit: [[this.inherit, this]]});
+    this.terminal = new Terminal({inherit: [[Snap.prototype.inherit, this]]});
 
     /**
      * collection of links that include this snap.
@@ -1465,7 +1480,18 @@ Snap.prototype.addLink = function (link) {
         this.links.push(link);
     }
 };
-Snap.prototype.linksFrom = function (linkType, filter, meta) {
+Snap.prototype.getLinksTo = function (linkType, filter, meta) {
+    var links = this.getLinks(linkType, filter, meta);
+    var out= [];
+    for(var l = 0; l < links.length; ++l){
+        if (links[l].snaps[1].id == this.id){
+            out.push(links[0]);
+        }
+    }
+    return out;
+};
+
+Snap.prototype.getLinksFrom = function (linkType, filter, meta) {
     var links = this.getLinks(linkType, filter, meta);
     var out= [];
     for(var l = 0; l < links.length; ++l){
@@ -1702,6 +1728,11 @@ Snap.prototype.resParent = function (link) {
     return false;
 };
 
+/**
+ * Sends a miessage to the terminal of this node and all its children
+ * @param message
+ * @param data
+ */
 Snap.prototype.nodeBroadcast = function(message, data){
     var snaps = [this];
 
@@ -1761,9 +1792,6 @@ Snap.prototype.has = function(prop, my) {
 };
 
 Snap.prototype.set = function(prop, value, immediate) {
-    if (this.debug) {
-        console.log("snap %s setting %s to %s \n", this.id, prop, _.isObject(value) ? JSON.stringify(value) : value);
-    }
     if (this.simple) {
         this._props[prop] = value;
         return this;
@@ -2100,25 +2128,25 @@ Snap.prototype.initUpdated = function() {
 
 };
 
-Space.prototype.bd = function(ele, parent) {
+Space.prototype.bd = function (ele, parent) {
     var dom = SNAPS.boxDomElement(this, this.snaps.length, ele, parent);
     this.snaps.push(dom);
     return dom;
 };
 
-SNAPS.boxDomElement = function(space, i, e, p) {
+SNAPS.boxDomElement = function (space, i, e, p) {
 
     return new DomElement(space, i, e, p);
 };
 
-Space.prototype.bdDispatch = function(){
+Space.prototype.bdDispatch = function () {
     var args = _.toArray(arguments);
     var message = args.shift();
 
-    for (var s = 0; s < this.snaps.length; ++s){
+    for (var s = 0; s < this.snaps.length; ++s) {
         var snap = this.snaps[s];
-        if (snap.$TYPE == 'DOM'){
-            if (!snap.hasDomParents()){
+        if (snap.$TYPE == 'DOM') {
+            if (!snap.hasDomParents()) {
                 snap.domBroadcast(message, args);
             }
         }
@@ -2220,7 +2248,7 @@ Space.prototype.bdDispatch = function(){
  *               AND this DomElement will be made a child of the parent.
  * @constructor
  */
-var DomElement = function(space, id, ele, parent) {
+var DomElement = function (space, id, ele, parent) {
     Snap.call(this, space, id, {});
 
     this.styleSnap = space.snap();
@@ -2233,7 +2261,7 @@ var DomElement = function(space, id, ele, parent) {
 
     this.attrSnap.listen('updateProperties', _attrSnapChanges, this);
     this.styleSnap.listen('updateProperties', _styleSnapChanges, this);
-    this.propChangeTerminal.listen('innerhtml', function(newContent) {
+    this.propChangeTerminal.listen('innerhtml', function (newContent) {
         this.h(newContent);
     }, this);
     this._element = ele;
@@ -2246,7 +2274,7 @@ var DomElement = function(space, id, ele, parent) {
         }
     }
 
-    this.listen('element', function(element) {
+    this.listen('element', function (element) {
         if (element && element.$TYPE == DomElement.prototype.$TYPE) {
 
         }
@@ -2267,12 +2295,12 @@ DomElement.prototype = Object.create(Snap.prototype);
 DomElement.prototype.$TYPE = 'DOM';
 SNAPS.typeAliases.SNAP.push(DomElement.prototype.$TYPE);
 
-DomElement.prototype.domNodeName = function() {
+DomElement.prototype.domNodeName = function () {
     return this.has('tag') ? this.get('tag') : 'div';
 };
 
 //@TODO: is this async?
-DomElement.prototype.element = DomElement.prototype.e = function() {
+DomElement.prototype.element = DomElement.prototype.e = function () {
     if (!this._element) {
         if (typeof (document) == 'undefined') {
             if (this.space.document) {
@@ -2286,7 +2314,7 @@ DomElement.prototype.element = DomElement.prototype.e = function() {
                 SNAPS.jsdom.env(
                     '<html><body></body></html>',
                     [],
-                    function(errors, w) {
+                    function (errors, w) {
                         window = w;
                         self.space.window = w;
                         self.space.document = window.document;
@@ -2304,28 +2332,27 @@ DomElement.prototype.element = DomElement.prototype.e = function() {
     return this._element;
 };
 
-DomElement.prototype.style = function(prop, value) {
+DomElement.prototype.style = function (prop, value) {
     if (typeof(prop) == 'object') {
         for (var p in prop) {
             this.styleSnap.set(p, prop[p]);
         }
+    } else if (arguments.length < 2) {
+        return this.styleSnap.get(prop);
     } else {
-        if (arguments.length < 2) {
-            return this.styleSnap.get(prop);
-        }
         this.styleSnap.set(prop, value)
     }
     return this;
 };
 
-DomElement.prototype.contains = function(x, y) {
+DomElement.prototype.contains = function (x, y) {
     var rect = this.e().getBoundingClientRect();
 
     return !(x < rect.left || x > rect.right || y < rect.top || y > rect.bottom);
 
 };
 
-DomElement.prototype.attr = function(prop, value) {
+DomElement.prototype.attr = function (prop, value) {
     if (typeof(prop) == 'object') {
         for (var p in prop) {
             this.attrSnap.set(p, prop[p]);
@@ -2339,7 +2366,7 @@ DomElement.prototype.attr = function(prop, value) {
     return this;
 };
 
-DomElement.prototype.innerHTML = function(content) {
+DomElement.prototype.innerHTML = function (content) {
     if (this.hasDomChildren()) {
         throw new Error('innerHTML: cannot add content to a browserDom snap with domChildren');
     }
@@ -2347,7 +2374,7 @@ DomElement.prototype.innerHTML = function(content) {
     return this;
 };
 
-DomElement.prototype.destroy = function() {
+DomElement.prototype.destroy = function () {
     if (this._element) {
         this.removeElement();
     }
@@ -2368,7 +2395,7 @@ DomElement.prototype.destroy = function() {
  * @param parent
  * @returns {DomElement}
  */
-DomElement.prototype.addElement = function(parent) {
+DomElement.prototype.addElement = function (parent) {
     if (!parent) {
         var parents = this.domParents();
         if (parents.length) {
@@ -2385,7 +2412,7 @@ DomElement.prototype.addElement = function(parent) {
     return this;
 };
 
-DomElement.prototype.parent = function() {
+DomElement.prototype.parent = function () {
     if (this.space.document) {
         return this.space.document;
     } else if (this._element) {
@@ -2395,7 +2422,7 @@ DomElement.prototype.parent = function() {
     }
 };
 
-DomElement.prototype.document = function() {
+DomElement.prototype.document = function () {
     var document = this.space.document;
     if (document) {
         return document;
@@ -2403,7 +2430,7 @@ DomElement.prototype.document = function() {
     return this.e() ? this.e().document : null;
 };
 
-DomElement.prototype.h = DomElement.prototype.html = function(innerhtml) {
+DomElement.prototype.h = DomElement.prototype.html = function (innerhtml) {
     if (arguments.length > 0) {
         if (this.hasDomChildren()) {
             throw new Error('attempting to add content to a browserDom snap with domChildren');
@@ -2416,7 +2443,7 @@ DomElement.prototype.h = DomElement.prototype.html = function(innerhtml) {
     }
 };
 
-DomElement.prototype.a = function(prop, value) {
+DomElement.prototype.a = function (prop, value) {
 
     if (dataRE.test(prop)) {
         var args = _.toArray(arguments);
@@ -2442,7 +2469,7 @@ DomElement.prototype.a = function(prop, value) {
  *  -- config, unit
  *
  */
-DomElement.prototype.s = function() {
+DomElement.prototype.s = function () {
 
     var args = _.toArray(arguments);
     var prop = args[0];
@@ -2474,7 +2501,7 @@ DomElement.prototype.s = function() {
     }
 };
 
-DomElement.prototype.removeElement = function() {
+DomElement.prototype.removeElement = function () {
     var parent = this.e().parentNode;
     if (parent) {
         parent.removeChild(this.e());
@@ -2482,19 +2509,19 @@ DomElement.prototype.removeElement = function() {
     return this;
 };
 
-DomElement.prototype.setDebug = function(d) {
+DomElement.prototype.setDebug = function (d) {
     this.debug = this.styleSnap.debug = this.attrSnap.debug = d;
     return this;
 };
 
-DomElement.prototype.domChildrenNodes = function() {
+DomElement.prototype.domChildrenNodes = function () {
     var myId = this.id;
-    return this.getLinks('node', function(n) {
+    return this.getLinks('node', function (n) {
         return n.meta == 'dom' && n.snaps[0].id == myId;
     });
 };
 
-DomElement.prototype.hasDomChildren = function() {
+DomElement.prototype.hasDomChildren = function () {
     for (var l = 0; l < this.links.length; ++l) {
         var link = this.links[l];
         if (link.linkType == 'node' && link.meta == 'dom' && link.snaps[0].id == this.id) {
@@ -2504,7 +2531,7 @@ DomElement.prototype.hasDomChildren = function() {
     return false;
 };
 
-DomElement.prototype.domChildren = function() {
+DomElement.prototype.domChildren = function () {
     var children = [];
     for (var l = 0; l < this.links.length; ++l) {
         var link = this.links[l];
@@ -2515,24 +2542,20 @@ DomElement.prototype.domChildren = function() {
     return children;
 };
 
-DomElement.prototype.domParentNodes = function() {
+DomElement.prototype.domParentNodes = function () {
     var myId = this.id;
-    return this.getLinks('node', function(n) {
+    return this.getLinks('node', function (n) {
         return n.meta == 'dom' && n.snaps[1].id == myId;
     });
 };
 
-<<<<<<< HEAD
-DomElement.prototype.domParents = function() {
-=======
 DomElement.prototype.domParent = function () {
     return this.domParents()[0];
 }
     DomElement.prototype.domParents = function () {
->>>>>>> 454d196b7e326f06077a9bbe393e057ac0d5cc91
     var myId = this.id;
 
-    var links = this.getLinks('node', function(n) {
+    var links = this.getLinks('node', function (n) {
         return n.meta == 'dom' && n.snaps[1].id == myId;
     });
     var out = [];
@@ -2543,11 +2566,7 @@ DomElement.prototype.domParent = function () {
     return out;
 };
 
-<<<<<<< HEAD
-DomElement.prototype.hasDomParents = function() {
-=======
 DomElement.prototype.hasDomParent = function () {
->>>>>>> 454d196b7e326f06077a9bbe393e057ac0d5cc91
     for (var l = 0; l < this.links.length; ++l) {
         var link = this.links[l];
         if (link.linkType == 'node' && link.meta == 'dom' && link.snaps[1].id == this.id) {
@@ -2562,7 +2581,7 @@ DomElement.prototype.hasDomParent = function () {
  * @param dom {DomElement}
  * @returns {*}
  */
-DomElement.prototype.link = function(dom) {
+DomElement.prototype.link = function (dom) {
     var link;
     if (arguments.length == 1) {
         link = Snap.prototype.link.call(this, dom);
@@ -2587,7 +2606,7 @@ DomElement.prototype.link = function(dom) {
  */
 
 DomElement.prototype.d =
-    DomElement.prototype.data = function() {
+    DomElement.prototype.data = function () {
         var args = _.toArray(arguments);
         var prop = args[0];
         if (typeof(prop) == 'object') {
@@ -2620,7 +2639,7 @@ DomElement.prototype.d =
 
     };
 
-DomElement.prototype._initDataSnap = function() {
+DomElement.prototype._initDataSnap = function () {
     this.dataSnap = this.space.snap();
     var i, attrs, l;
     for (i = 0, attrs = this.e().attributes, l = attrs.length; i < l; i++) {
@@ -2631,12 +2650,13 @@ DomElement.prototype._initDataSnap = function() {
     }
 };
 
-function _styleSnapChanges() {
+function _styleSnapChanges () {
     var state = this.styleSnap.state();
+    console.log('setting style to ', require('util').inspect('state'));
     this.s(state);
 }
 
-function _attrSnapChanges() {
+function _attrSnapChanges () {
     for (var p in this.attrSnap.lastChanges) {
         var value = this.attrSnap.lastChanges[p].pending;
 
@@ -2652,26 +2672,28 @@ function _attrSnapChanges() {
  * iteratively recursing through the DomElement tree, sending the message/data to the terminals of each DomElement
  * @param message
  * @param data
+ *
+ * note - this method is a derecursed tree walk == could use some unit testing to validate integrity
  */
-Snap.prototype.domBroadcast = function(message, data){
+Snap.prototype.domBroadcast = function (message, data) {
     var snaps = [this];
 
-    while(snaps.length){
+    while (snaps.length) {
         var snap = snaps.shift(snaps);
         snap.terminal.dispatch(message, data);
-        snaps.unshift.apply(snaps, this.domChildren());
+        if (snap.hasDomChildren ()) {
+            snaps.unshift.apply(snaps, snap.domChildren());
+        }
     }
 };
 
-Space.prototype.domBroadcast = function(message, data){
+Space.prototype.domBroadcast = function (message, data) {
 
-    for (var s = 0; s < this.snaps.length; ++s){
+    for (var s = 0; s < this.snaps.length; ++s) {
         var snap = this.snaps[s];
 
-        if (snap.$TYPE == DomElement.prototype.$TYPE) {
-            if (!snap.hasDomParents()) {
-                snap.domBroadcast(message, data);
-            }
+        if (snap.$TYPE == DomElement.prototype.$TYPE && !snap.hasDomParent()) {
+            snap.domBroadcast(message, data);
         }
     }
 
@@ -2711,17 +2733,12 @@ var _pxProps = _.reduce('border-bottom-width,border-left-width,border-radius,bor
 var pxRE = /([\d.]+)px/;
 var pctRE = /([\d.]+)%/;
 
-<<<<<<< HEAD
-Space.prototype.size = function(sizeName, input, unit) {
-=======
 Space.prototype.size = function (sizeName, input, unit) {
->>>>>>> 454d196b7e326f06077a9bbe393e057ac0d5cc91
     var size = new Size(this, this.snaps.length, sizeName, input, unit);
     this.snaps.push(size);
     return size;
 };
 
-<<<<<<< HEAD
 DomElement.prototype.sizeResource = function(sizeName) {
     var id = this.id;
     return this.getLinks('resource', function(link) {
@@ -2729,42 +2746,44 @@ DomElement.prototype.sizeResource = function(sizeName) {
     })[0];
 };
 
-DomElement.prototype.size = function(sizeName, value, unit) {
-    var size;
-    var res = this.sizeResource(sizeName);
-    // get mode
-    if (arguments.length == 1) {
-        return res ? res.snaps[1] : null;
-    }
 
-    if (res) {
-        // recycle existing size
-        size = res.snaps[1];
-        size.set('value', value);
-        size.set('unit', unit);
-        return this;
-    }
-
-    size = this.space.size(sizeName, value, unit);
-    if (unit == '%') {
-        var self = this;
-        this.terminal.listen('resize', function() {
-            debugger;
-            _updateSize.call(size);
-        });
-    }
-    this.link('resource', size).meta = sizeName;
-    return this
-=======
 DomElement.prototype.size = function (sizeName, value, unit) {
     if (arguments.length < 2) {
-        var links = this.linksFrom('resource', null, sizeName);
+        var links = this.getLinksFrom('resource', null, sizeName);
         return links[0] ? links[0].snaps[1] : null;
     } else {
+        var res = this.sizeResource(sizeName);
+        // get mode
+        if (arguments.length == 1) {
+            return res ? res.snaps[1] : null;
+        }
+
+        if (res) {
+            // recycle existing size
+            size = res.snaps[1];
+            size.set('value', value);
+            size.set('unit', unit);
+            return this;
+        }
+
         var size = this.space.size(sizeName, value, unit);
         this.link('resource', size).meta = sizeName;
+
+        if (size.get('unit', true) == '%') {
+            var self = this;
+            debugger;
+
+            function orf() {
+                self.clearProp(sizeName + 'Pixels', true);
+                _updateSize.call(size);
+            }
+
+            this.set('onResizeFn', orf);
+            this.terminal.listen('resize', orf);
+            //@TODO: cleanup
+        }
+        return this;
     }
->>>>>>> 454d196b7e326f06077a9bbe393e057ac0d5cc91
 };
 
 /**
@@ -2778,22 +2797,14 @@ DomElement.prototype.size = function (sizeName, value, unit) {
  *
  * @param space {Space}
  * @param id {int}
-<<<<<<< HEAD
- * @param sizeName {string}
-=======
- * @param paramName {String} usu. 'width' or 'height'
->>>>>>> 454d196b7e326f06077a9bbe393e057ac0d5cc91
+ * @param sizeName {string}  {String} usu. 'width' or 'height'
  * @param input {variant} number or size string('200px', '100%')
  * @param unit {string} (optional) '%' or 'px'
  * @constructor
  */
-<<<<<<< HEAD
+
 function Size(space, id, sizeName, input, unit) {
-=======
-function Size(space, id, paramName, input, unit) {
->>>>>>> 454d196b7e326f06077a9bbe393e057ac0d5cc91
     Snap.call(this, space, id);
-    this.set('paramName', paramName);
 
     this.listen('updateProperties', _updateSize, this);
     this.listen('updateDocumentSize', _updateSize, this);
@@ -2827,7 +2838,6 @@ function Size(space, id, paramName, input, unit) {
 
 Size.prototype = Object.create(Snap.prototype);
 
-<<<<<<< HEAD
 Size.prototype.pixels = function() {
     var value = this.get('value');
     var unit = this.get('unit');
@@ -2836,32 +2846,32 @@ Size.prototype.pixels = function() {
     if (unit == 'px') {
         return value;
     } else if (unit == '%') {
+        var pixelName = sizeName + 'Pixels';
 
         var parentSnap = this.resParent();
+        if (parentSnap.has(pixelName)){
+            return parentSnap.get(pixelName);
+        }
 
-        parentSnap = parentSnap.domParents()[0];
+        parentSnap = parentSnap.domParent();
         while (parentSnap) {
             //@TODO: multiple parents should not exist for domNodes
             var pixels = parentSnap.pixels();
             if (pixels !== null) {
-                return pixels * value / 100;
+                pixels *= value / 100;
+                return pixels;
             }
             parentSnap = parentSnap.domParents()[0];
         }
-        //@TODO: check document?
-=======
-Size.prototype.sizeDomParent = function () {
-    for (var l = 0; l < this.links.length; ++l) {
-        var link = this.links[l];
-        if (link.linkType == 'resource' && link.meta == this.get('paramName') && link.snaps[1].id == this.id) {
-            return link.snaps[0];
-        }
->>>>>>> 454d196b7e326f06077a9bbe393e057ac0d5cc91
     }
     return null;
 };
+        //@TODO: check document?
 
-<<<<<<< HEAD
+Size.prototype.sizeDomParent = function () {
+    return this.getLinksTo('resource', null, this.get('sizeName'));
+};
+
 DomElement.prototype.pixels = function(sizeName) {
     var pixelName = sizeName + 'Pixels';
     if (!this.has(pixelName)) {
@@ -2915,8 +2925,6 @@ _domPixels = function(sizeName) {
     return null;
 };
 
-Size.prototype.size = function(value) {
-=======
 Size.domSize = function (dom, paramName) {
     for (var l = 0; l < dom.links.length; ++l) {
         var link = dom.links[l];
@@ -2928,7 +2936,6 @@ Size.domSize = function (dom, paramName) {
 };
 
 Size.prototype.size = function (value) {
->>>>>>> 454d196b7e326f06077a9bbe393e057ac0d5cc91
     if (!this.get('block')) {
         return null;
     } else if (value) {
@@ -3002,9 +3009,11 @@ Size.prototype.percent = function () {
 
 SNAPS.Size = Size;
 
+/**
+ * updates an element's size based on its property
+ * @private
+ */
 function _updateSize() {
-<<<<<<< HEAD
-
     var dom = this.resParent();
     if (!dom) return;
 
@@ -3012,23 +3021,11 @@ function _updateSize() {
     var unit = this.get('unit');
     var sizeName = this.get('sizeName');
     var pixelName = sizeName + 'Pixels';
+    var out = '';
     if (dom.has(pixelName)) {
-        dom.clearProp(pixelName, true, true); // silently clear cached pixel size from this dom and the children of this.dom
+        dom.clearProp(pixelName, true, true);
+        // silently clear cached pixel size from this dom and the children of this.dom
     }
-
-    if (unit == '%') {
-        var pixels = dom.pixels(sizeName);
-        if (pixels !== null) {
-            value = pixels * value / 100;
-            unit = 'px';
-        }
-    }
-
-    if (this.get('block')) {
-        dom.s(sizeName, value, unit);
-    } else {
-        dom.s(sizeName, SNAPS.DELETE);
-=======
     var parentLink = this.resParent(true);
     if (!parentLink) {
         return;
@@ -3036,21 +3033,37 @@ function _updateSize() {
     var parentSnap;
 
     if (this.get('block')) {
-        var pixels = this.pixels();
-        if (pixels !== null) {
-            parentSnap = this.sizeDomParent();
-            parentSnap.s(parentLink.meta, pixels, 'px');
-        } else {
-            var percent = this.percent();
-            parentSnap = this.sizeDomParent();
-            if (percent !== null) {
-                parentSnap.s(parentLink.meta, percent, '%');
+        if (unit == '%') {
+            parentSnap = dom.domParent();
+            if (parentSnap){
+                var pixels = parentSnap.pixels(sizeName);
+                if (pixels !== null) {
+                    value = pixels * value / 100;
+                    unit = 'px';
+                }
             } else {
-                parentSnap.s(parentLink.meta, SNAPS.DELETE);
+                var window = this.space.window;
+                if (window){
+                    switch(sizeName){
+                        case 'width':
+                            value *= window.innerWidth /100;
+                            unit = 'px';
+                            break;
 
+                        case 'height':
+                            value *= window.innerHeight /100;
+                            unit = 'px';
+                            break;
+                    }
+                }
             }
+            out =( value + unit);
+        } else if (unit == 'px'){
+            out = value + 'px';
         }
->>>>>>> 454d196b7e326f06077a9bbe393e057ac0d5cc91
+        console.log('setting %s to %s', sizeName, out);
+        debugger;
+        dom.style(sizeName, out);
     }
 
 }
