@@ -420,7 +420,10 @@ DomElement.prototype.domParentNodes = function () {
     });
 };
 
-DomElement.prototype.domParents = function () {
+DomElement.prototype.domParent = function () {
+    return this.domParents()[0];
+}
+    DomElement.prototype.domParents = function () {
     var myId = this.id;
 
     var links = this.getLinks('node', function (n) {
@@ -434,7 +437,7 @@ DomElement.prototype.domParents = function () {
     return out;
 };
 
-DomElement.prototype.hasDomParents = function () {
+DomElement.prototype.hasDomParent = function () {
     for (var l = 0; l < this.links.length; ++l) {
         var link = this.links[l];
         if (link.linkType == 'node' && link.meta == 'dom' && link.snaps[1].id == this.id) {
