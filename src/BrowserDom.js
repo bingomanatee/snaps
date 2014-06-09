@@ -390,7 +390,7 @@ DomElement.prototype.domParent = function () {
     })
 };
 
-DomElement.prototype.hasDomParents = function () {
+DomElement.prototype.hasDomParent = function () {
     for (var l = 0; l < this.links.length; ++l) {
         var link = this.links[l];
         if (link.linkType == 'node' && link.meta == 'dom' && link.snaps[1].id == this.id) {

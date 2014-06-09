@@ -8,9 +8,13 @@ Space.prototype.size = function (sizeName, input, unit) {
 };
 
 DomElement.prototype.size = function (sizeName, value, unit) {
-
-    var size = this.space.size(sizeName, value, unit);
-    this.link('resource', size).meta = sizeName;
+    if (arguments.length < 2) {
+        var links = this.linksFrom('resource', null, sizeName);
+        return links[0] ? links[0].snaps[1] : null;
+    } else {
+        var size = this.space.size(sizeName, value, unit);
+        this.link('resource', size).meta = sizeName;
+    }
 };
 
 /**
@@ -29,7 +33,7 @@ DomElement.prototype.size = function (sizeName, value, unit) {
  * @param unit {string} (optional) '%' or 'px'
  * @constructor
  */
-function Size(space, paramName, id, input, unit) {
+function Size(space, id, paramName, input, unit) {
     Snap.call(this, space, id);
     this.set('paramName', paramName);
 
@@ -92,10 +96,19 @@ Size.prototype.size = function (value) {
     }
 };
 
+/**
+ * return the pixels percentage. For optimal dom this should not be initiated
+ * until its proven you cannot determine an absolute size for the node
+ * because there is no parental pixel basis.
+ *
+ * This means unless the space has no document this branch should never be called into action
+ *
+ * @returns {*}
+ */
 Size.prototype.pixels = function () {
     var unit = this.get('unit');
     var value = this.get('value');
-    var paramValue = this.get('paramValue');
+    var paramName = this.get('paramName');
 
     switch (unit) {
         case 'px':
@@ -104,57 +117,40 @@ Size.prototype.pixels = function () {
 
         case '%':
 
-            var target = this.sizeDomParent();
-
-            while (target) {
-
-                target = target.domParent();
-                if (!target) {
-                    return null;
-                }
-
-                var size = Size.domSize(target);
-
+            var parentDomNode = this.sizeDomParent().domParent();
+            while (parentDomNode) {
+                // either find a parent node with a valid pixel scalar
+                var size = parentDomNode.size(paramName);
                 if (size) {
-                    var pixels = size.pixels();
-                    if (pixels !== null) {
-                        return pixels * value / 100;
+                    var parentPixels = size.pixels();
+                    if (parentPixels !== null) {
+                        return value * parentPixels / 100;
                     }
+                } else {
+                    // check upstream containers.
+                    parentDomNode = parentDomNode.domParent();
                 }
             }
+            return null;
 
             break;
     }
     return null;
 };
 
+/**
+ * returns the local percent == percent of parent.
+ * @returns {*}
+ */
 Size.prototype.percent = function () {
     var unit = this.get('unit');
     var value = this.get('value');
-    var paramValue = this.get('paramValue');
+    var paramName = this.get('paramName');
 
     switch (unit) {
 
         case '%':
 
-            var target = this.sizeDomParent();
-
-            if (target) {
-
-                target = target.domParent();
-                if (!target) {
-                    return null;
-                }
-
-                var size = Size.domSize(target);
-
-                if (size) {
-                    var percent = size.percent();
-                    if (percent !== null) {
-                        return percent * value / 100;
-                    }
-                }
-            }
             return value;
 
             break;
@@ -178,12 +174,14 @@ function _updateSize() {
             parentSnap.s(parentLink.meta, pixels, 'px');
         } else {
             var percent = this.percent();
+            parentSnap = this.sizeDomParent();
             if (percent !== null) {
-                parentSnap = this.sizeDomParent();
-                parentSnap.s(parentLink.meta, pixels, '%');
+                parentSnap.s(parentLink.meta, percent, '%');
+            } else {
+                parentSnap.s(parentLink.meta, SNAPS.DELETE);
+
             }
         }
     }
-    parentSnap.s(parentLink.meta, SNAPS.DELETE);
 
 }

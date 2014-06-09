@@ -15,7 +15,7 @@ describe('SNAPS', function() {
                 var size;
                 before(function() {
                     space = SNAPS.space();
-                    size = space.size(false);
+                    size = space.size('width', false);
                     space.update();
                 });
 
@@ -32,7 +32,7 @@ describe('SNAPS', function() {
                 var size;
                 before(function() {
                     space = SNAPS.space();
-                    size = space.size('100px');
+                    size = space.size('width', '100px');
                     space.update();
                 });
 
@@ -49,7 +49,7 @@ describe('SNAPS', function() {
                 var size;
                 before(function() {
                     space = SNAPS.space();
-                    size = space.size('100%');
+                    size = space.size('width', '100%');
                     space.update();
                 });
 
@@ -66,7 +66,7 @@ describe('SNAPS', function() {
                 var size;
                 before(function() {
                     space = SNAPS.space();
-                    size = space.size('100px');
+                    size = space.size('width', '100px');
                     space.update();
                 });
 
