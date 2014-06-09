@@ -9,6 +9,21 @@ SNAPS.boxDomElement = function (space, i, e, p) {
     return new DomElement(space, i, e, p);
 };
 
+Space.prototype.bdDispatch = function () {
+    var args = _.toArray(arguments);
+    var message = args.shift();
+
+    for (var s = 0; s < this.snaps.length; ++s) {
+        var snap = this.snaps[s];
+        if (snap.$TYPE == 'DOM') {
+            if (!snap.hasDomParents()) {
+                snap.domBroadcast(message, args);
+            }
+        }
+
+    }
+};
+
 /**
  * DomElement is a child class of Snap. It manages a browser Element.
  * Note that most of the properties that relate to the element are managed by
@@ -145,10 +160,10 @@ var DomElement = function (space, id, ele, parent) {
     }, this);
     this.propChangeTerminal.listen('innerhtml', this.h, this)
 };
-DomElement.prototype.$TYPE = 'DOM';
-SNAPS.typeAliases.SNAP.push(DomElement.prototype.$TYPE);
 
 DomElement.prototype = Object.create(Snap.prototype);
+DomElement.prototype.$TYPE = 'DOM';
+SNAPS.typeAliases.SNAP.push(DomElement.prototype.$TYPE);
 
 DomElement.prototype.domNodeName = function () {
     return this.has('tag') ? this.get('tag') : 'div';
@@ -268,6 +283,24 @@ DomElement.prototype.addElement = function (parent) {
     return this;
 };
 
+DomElement.prototype.parent = function () {
+    if (this.space.document) {
+        return this.space.document;
+    } else if (this._element) {
+        return this._element.document;
+    } else {
+        return null;
+    }
+};
+
+DomElement.prototype.document = function () {
+    var document = this.space.document;
+    if (document) {
+        return document;
+    }
+    return this.e() ? this.e().document : null;
+};
+
 DomElement.prototype.h = DomElement.prototype.html = function (innerhtml) {
     if (arguments.length > 0) {
         if (this.hasDomChildren()) {
@@ -369,6 +402,17 @@ DomElement.prototype.hasDomChildren = function () {
     return false;
 };
 
+DomElement.prototype.domChildren = function () {
+    var children = [];
+    for (var l = 0; l < this.links.length; ++l) {
+        var link = this.links[l];
+        if (link.linkType == 'node' && link.meta == 'dom' && link.snaps[0].id == this.id) {
+            children.push(link.snaps[1]);
+        }
+    }
+    return children;
+};
+
 DomElement.prototype.domParentNodes = function () {
     var myId = this.id;
     return this.getLinks('node', function (n) {
@@ -382,9 +426,12 @@ DomElement.prototype.domParents = function () {
     var links = this.getLinks('node', function (n) {
         return n.meta == 'dom' && n.snaps[1].id == myId;
     });
-    return _.map(links, function (link) {
-        return link.snaps[0];
-    })
+    var out = [];
+    for (var p = 0; p < links.length; ++p) {
+        out.push(links[p].snaps[0]);
+    }
+
+    return out;
 };
 
 DomElement.prototype.hasDomParents = function () {
@@ -471,12 +518,12 @@ DomElement.prototype._initDataSnap = function () {
     }
 };
 
-function _styleSnapChanges() {
+function _styleSnapChanges () {
     var state = this.styleSnap.state();
     this.s(state);
 }
 
-function _attrSnapChanges() {
+function _attrSnapChanges () {
     for (var p in this.attrSnap.lastChanges) {
         var value = this.attrSnap.lastChanges[p].pending;
 
@@ -487,3 +534,32 @@ function _attrSnapChanges() {
         }
     }
 }
+
+/**
+ * iteratively recursing through the DomElement tree, sending the message/data to the terminals of each DomElement
+ * @param message
+ * @param data
+ */
+Snap.prototype.domBroadcast = function (message, data) {
+    var snaps = [this];
+
+    while (snaps.length) {
+        var snap = snaps.shift(snaps);
+        snap.terminal.dispatch(message, data);
+        snaps.unshift.apply(snaps, this.domChildren());
+    }
+};
+
+Space.prototype.domBroadcast = function (message, data) {
+
+    for (var s = 0; s < this.snaps.length; ++s) {
+        var snap = this.snaps[s];
+
+        if (snap.$TYPE == DomElement.prototype.$TYPE) {
+            if (!snap.hasDomParents()) {
+                snap.domBroadcast(message, data);
+            }
+        }
+    }
+
+};

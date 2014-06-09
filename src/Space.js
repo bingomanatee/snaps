@@ -7,6 +7,7 @@ var Space = function () {
     this.editionCompleted = 0;
     this.benchmarking = false;
     this.benchmarks = [];
+    this.terminal = new Terminal();
 };
 
 Space.prototype.$TYPE = 'SPACE';

@@ -231,3 +231,13 @@ Snap.prototype.resParent = function(link) {
     }
     return false;
 };
+
+Snap.prototype.nodeBroadcast = function(message, data){
+    var snaps = [this];
+
+    while(snaps.length){
+        var snap = snaps.shift(snaps);
+        snap.terminal.dispatch(message, data);
+        snaps.unshift.apply(snaps, this.nodeChildren());
+    }
+};

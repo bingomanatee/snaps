@@ -3,7 +3,7 @@ Snap.prototype.has = function(prop, my) {
 };
 
 Snap.prototype.set = function(prop, value, immediate) {
-    if (this.debug){
+    if (this.debug) {
         console.log("snap %s setting %s to %s \n", this.id, prop, _.isObject(value) ? JSON.stringify(value) : value);
     }
     if (this.simple) {
@@ -130,4 +130,48 @@ Snap.prototype.merge = function(prop, value, combiner) {
  */
 Snap.prototype.state = function() {
     return _.clone(this._props);
+};
+
+/**
+ * this method instantly erases all traces of a property from the snap.
+ * if propogate, recurses to children.
+ * @param prop {string}
+ * @param propogate {boolean}
+ * @param silent {boolean}  -- suppress update alerts
+ */
+Snap.prototype.clearProp = function(prop, propogate, silent) {
+
+    var snaps = [this];
+
+    while (snaps.length) {
+        var snap = snaps.shift();
+        if (snap.has(prop)) {
+            var oldValue = snap.get(prop);
+            delete snap._props[prop];
+
+            if (snap._pendingChanges.hasOwnProperty(prop)) {
+                delete snap._pendingChanges[prop];
+            }
+            if (snap._myProps.hasOwnProperty(prop)) {
+                delete snap._myProps[prop];
+            }
+
+            if (!silent) {
+                snap.propChangeTerminal.dispatch(prop,
+                    SNAPS.DELETE,
+                    oldValue,
+                    false,
+                    null,
+                    null);
+            }
+        }
+
+        if (propogate) {
+            var children = snap.nodeChildren();
+            if (children.length) {
+                snaps.push.apply(snaps, children)
+            }
+        }
+    }
+    return this;
 };

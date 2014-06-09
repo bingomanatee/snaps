@@ -9,13 +9,14 @@ describe('SNAPS', function() {
     describe('Snap', function() {
 
         describe('Size', function() {
+            // analyzing size properties in isolation without reference to a domElement
 
             describe('false', function() {
                 var space;
                 var size;
                 before(function() {
                     space = SNAPS.space();
-                    size = space.size(false);
+                    size = space.size('width', false);
                     space.update();
                 });
 
@@ -32,7 +33,7 @@ describe('SNAPS', function() {
                 var size;
                 before(function() {
                     space = SNAPS.space();
-                    size = space.size('100px');
+                    size = space.size('width', '100px');
                     space.update();
                 });
 
@@ -49,7 +50,7 @@ describe('SNAPS', function() {
                 var size;
                 before(function() {
                     space = SNAPS.space();
-                    size = space.size('100%');
+                    size = space.size('width', '100%');
                     space.update();
                 });
 
@@ -66,7 +67,7 @@ describe('SNAPS', function() {
                 var size;
                 before(function() {
                     space = SNAPS.space();
-                    size = space.size('100px');
+                    size = space.size('width', '100px');
                     space.update();
                 });
 
@@ -81,7 +82,8 @@ describe('SNAPS', function() {
         })
     });
 
-    describe('assigned property', function() {
+    describe.only('assigned property', function() {
+        // analzying size/dom interaction.
         describe('basic box', function() {
             var domSnap;
             var window, document, space;
@@ -92,9 +94,11 @@ describe('SNAPS', function() {
                     function(errors, w) {
                         window = w;
                         document = window.document;
+                        document.innerWidth = 1024;
 
                         space = SNAPS.space();
                         space.document = document;
+                        space.window = w;
 
                         domSnap = space.bd().addElement();
                         done();
@@ -112,8 +116,15 @@ describe('SNAPS', function() {
                 it('should assign 50% width to domSnap', function() {
                     domSnap.size('width', 50, '%');
                     space.update();
-                    document.innerHTML.should.eql('<html><body><div style="width: 50%;"></div></body></html>');
+                    document.innerHTML.should.eql('<html><body><div style="width: 512px;"></div></body></html>');
                 });
+
+                it('should react to document size change', function(){
+                    space.window.innerWidth = 600;
+                    space.domBroadcast('resize');
+                    space.update();
+                    document.innerHTML.should.eql('<html><body><div style="width: 512px;"></div></body></html>');
+                })
             })
         });
     });

@@ -13,6 +13,11 @@ there are no arguments for `SNAPS.space()`. Spaces are primarily a collection of
 
 You can have any number of Space's in an application if you can find a useful reason to do so...
 
+### Using space with DOM
+
+If you use space to track BrowserDom snaps, assign document and window to space.document and space.window.
+this will propogate resize methods.
+
 ### Properties
 
 #### start : int
