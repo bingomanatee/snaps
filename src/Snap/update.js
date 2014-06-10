@@ -122,21 +122,24 @@ Snap.prototype.initUpdated = function () {
          * call this.dispatch('updateBlends', broadcast, edition)
          */
         if (this.blendCount > 0) {
-            this.terminal.receptor.updateBlends.dispatch(broadcast, edition);
-            this.terminal.receptor.updateProperties.dispatch('blends');
+          //  this.terminal.receptor.updateBlends.dispatch(broadcast, edition);
+            this.updateBlends();
+            this.dispatch('updateProperties', 'blends');
         }
 
         if (this.physicsCount > 0) {
-            this.terminal.receptor.updatePhysics.dispatch(broadcast, edition);
+            this.dispatch( 'updatePhysics', broadcast, edition);
         }
 
         // @Deprecated: observers are est replaced with property watchers.
         // if you wan to react to any and all updates watch for updateProperties.
         if (this.observers.length) {
-            this.terminal.receptor.updateObservers.dispatch(broadcast, edition);
+            this.updateObservers(broadcast, edition);
+            this.dispatch('updateObservers', broadcast, edition);
         }
 
         if (check.not.emptyObject(this._pendingChanges)) {
+            _updateProperties.call(this, broadcast, edition);
             this.dispatch('updateProperties', broadcast, edition);
         }
 
@@ -149,9 +152,9 @@ Snap.prototype.initUpdated = function () {
         }
     }, this);
 
-    this.listen('updateBlends', this.updateBlends, this);
+//    this.listen('updateBlends', this.updateBlends, this);
     this.listen('updatePhysics', _updatePhysics, this);
-    this.listen('updateObservers', this.updateObservers, this);
-    this.listen('updateProperties', _updateProperties, this);
+   // this.listen('updateObservers', this.updateObservers, this);
+  //  this.listen('updateProperties', _updateProperties, this);
 
 };
