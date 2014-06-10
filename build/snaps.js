@@ -2121,6 +2121,7 @@ Snap.prototype.initUpdated = function () {
          */
         if (this.blendCount > 0) {
             this.terminal.receptor.updateBlends.dispatch(broadcast, edition);
+            this.terminal.receptor.updateProperties.dispatch('blends');
         }
 
         if (this.physicsCount > 0) {
