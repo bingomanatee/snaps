@@ -98,7 +98,6 @@ define(function (require, exports, module) {
             .addElement()
             .attr('class', 'abs ball')
             .style('opacity', 1 / (1 + i));
-        ball.size('width', BALLSIZE, 'px').size('height', BALLSIZE, 'px');
         return ball;
     }
 

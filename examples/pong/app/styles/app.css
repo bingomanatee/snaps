@@ -26,6 +26,8 @@ html {
 
 .ball {
     background-color: rgb(30, 23, 25);
+    width: 15px;
+    height: 15px;
 }
 
 .paddle {
