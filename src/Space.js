@@ -28,6 +28,16 @@ Space.prototype.setWindow = function (window) {
     }.bind(this))
 };
 
+Space.prototype.getDocument = function(){
+    if (this.document) {
+        return this.document;
+    } else if (typeof document !== 'undefined') {
+        return document;
+    } else {
+        return null;
+    }
+};
+
 Space.prototype.resetTime = function () {
     this.start = new Date().getTime();
     this.time = 0;
@@ -152,6 +162,10 @@ Space.prototype.endEdition = function (currentEd) {
     }
 };
 
+Space.prototype.isEditing = function(){
+    return this.editionCompleted < this.editionStarted;
+};
+
 Space.prototype.update = function (next) {
     if (next) {
         this.nextTime();
@@ -170,7 +184,6 @@ Space.prototype.update = function (next) {
         snap = this.snaps[i];
         if (snap.active && (!snap.simple)) {
             if (snap.hasPendingChanges() || snap.blendCount > 0) {
-                console.log('queueing for update: ', snap);
                 updatedSnaps.push(snap);
             }
             snap.update(null, currentEd);

@@ -128,7 +128,15 @@ Snap.prototype.merge = function(prop, value, combiner) {
  * @returns {Object}
  */
 Snap.prototype.state = function() {
-    return _.clone(this._props);
+    var out = {};
+
+    for (var p in this._props){
+        out[p] = this._props[p];
+        if (/'/.test(this._props[p])){
+            debugger;
+        }
+    }
+    return out;
 };
 
 /**

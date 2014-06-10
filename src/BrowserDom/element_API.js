@@ -28,3 +28,151 @@ var _pxProps = _.reduce('border-bottom-width,border-left-width,border-radius,bor
         out[p] = true;
         return out;
     }, {});
+
+function _styleSnapChanges () {
+    var state = this.styleSnap.state();
+    this.s(state);
+}
+
+function _attrSnapChanges () {
+    for (var p in this.attrSnap.lastChanges) {
+        var value = this.attrSnap.lastChanges[p].pending;
+
+        if (value === SNAPS.DELETE) {
+            this.e().removeAttribute(p);
+        } else {
+            this.a(p, value);
+        }
+    }
+}
+
+//@TODO: is this async?
+DomElement.prototype.element = DomElement.prototype.e = function () {
+    if (!this._element) {
+        if (typeof (document) == 'undefined') {
+            if (this.space.document) {
+                this._element = this.space.document.createElement(this.domNodeName());
+                this.dispatch('element', this._element);
+            } else {
+                // this may not work if env is async....
+                SNAPS.jsdom = require('jsdom');
+                var self = this;
+
+                SNAPS.jsdom.env(
+                    '<html><body></body></html>',
+                    [],
+                    function (errors, w) {
+                        window = w;
+                        self.space.window = w;
+                        self.space.document = window.document;
+                        self.element = space.document.createElement(self.domNodeName());
+                        self.dispatch('element', self.element);
+                    }
+                );
+            }
+        } else {
+            this.window = window; // global
+            this.document = document; // global
+            this._element = document.createElement(this.domNodeName());
+        }
+    }
+    return this._element;
+};
+
+DomElement.prototype.style = function (prop, value, immediate) {
+    if (typeof(prop) == 'object') {
+        for (var p in prop) {
+            this.styleSnap.set(p, prop[p]);
+        }
+    } else if (arguments.length < 2) {
+        return this.styleSnap.get(prop);
+    } else {
+        this.styleSnap.set(prop, value);
+        if (this.space.isUpdating()) {
+            this.s(prop, value);
+        }
+    }
+    return this;
+};
+
+DomElement.prototype.h = DomElement.prototype.html = function (innerhtml) {
+    if (arguments.length > 0) {
+        if (this.hasDomChildren()) {
+            throw new Error('attempting to add content to a browserDom snap with domChildren');
+        }
+
+        this.e().innerHTML = innerhtml;
+        return this;
+    } else {
+        return this.e().innerHTML;
+    }
+};
+
+DomElement.prototype.a = function (prop, value) {
+    if (dataRE.test(prop)) {
+        var args = _.toArray(arguments);
+        return this.d.apply(this, args);
+    }
+    if (arguments.length > 1) {
+        this.e().setAttribute(prop, value);
+        return this;
+    } else if (typeof prop == 'object') {
+        for (var p in prop) {
+            this.e().setAttribute(p, prop[p]);
+        }
+    } else {
+        return this.e().getAttribute(prop);
+    }
+};
+
+/**
+ * directly write to the domElements's style. This for the most part should be done
+ * through the snap system.
+ *
+ * parameters can be:
+ *  -- prop (returns elements current value)
+ *  -- prop, value
+ *  -- prop, value, unit
+ *  -- config object (prop/value pairs)
+ *  -- config, unit
+ *
+ */
+DomElement.prototype.s = function () {
+
+    var args = _.toArray(arguments);
+    var prop = args[0];
+    var value;
+    if (_.isArray(prop)) {
+        value = prop[1];
+        prop = prop[0];
+    }
+    if (typeof(prop) == 'object') {
+
+        // this recursive call allows for a config object with subsequent arguments.
+        _.each(prop, function (value, prop) {
+            if (typeof(value) == 'number' && _pxProps[prop.toLowerCase()]) {
+                var unit = 'px';
+                value = Math.round(value) + unit;
+            }
+            this.e().style[prop] = value;
+        }, this);
+        return this;
+    } else if (args.length > 1) {
+        value = args[1];
+
+        // append 'px' (pixels) to numeric properties that require numeric units
+        if (typeof(value) == 'number' && _pxProps[prop.toLowerCase()]) {
+            var unit;
+            if (args.length > 2) {
+                unit = args[2]
+            } else {
+                unit = 'px';
+            }
+            value = Math.round(value) + unit;
+        }
+        this.e().style[prop] = value;
+        return this;
+    } else {
+        return this.e().style[prop];
+    }
+};

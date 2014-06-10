@@ -4,7 +4,7 @@
  * the Terminal does this for a suite of signals.
  */
 
-function Terminal(initial, locked) {
+function Terminal (initial, locked) {
     this.receptor = {};
     this.locked = false;
     if (initial) {
@@ -63,8 +63,7 @@ Terminal.prototype.listenOnce = function () {
     }
 };
 
-Terminal.prototype.checkWhat = function (what, doErr) {
-
+Terminal.prototype.checkLocks = function (what, doErr) {
     if (this.locked && (this.locked.length)) {
         for (var l = 0; l < this.locked.length; ++l) {
             if (what == this.locked[l]) {
@@ -76,6 +75,12 @@ Terminal.prototype.checkWhat = function (what, doErr) {
             }
         }
     }
+};
+
+Terminal.prototype.checkWhat = function (what, doErr) {
+    if (!this.checkLocks(what, doErr)) {
+        return 0;
+    }
     return this.receptor[what] ? this.receptor[what]._bindings.length : 0;
 };
 
@@ -83,18 +88,18 @@ Terminal.prototype.listen = function () {
     var args = _.toArray(arguments);
     var what = SNAPS.assert.notempty(args.shift(), 'string');
     var receptor;
-
-    if (!this.checkWhat(what, true)) {
+    if (!this.receptor[what]) {
         this.receptor[what] = receptor = new signals.Signal();
-    }else {
+    } else {
+        this.checkLocks(what, true);
         receptor = this.receptor[what];
     }
 
     if (check.array(args[0])) {
-        var fn = SNAPS.assert.fn(args[0][0]);
+         SNAPS.assert.fn(args[0][0]);
         receptor.add.apply(receptor, args[0]);
     } else {
-        var fn = SNAPS.assert.fn(args[0]);
+         SNAPS.assert.fn(args[0]);
         receptor.add.apply(receptor, args);
     }
 };
@@ -105,7 +110,7 @@ Terminal.prototype.dispatch = function () {
 
     if (this.receptor[what]) {
         if (this.receptor[what].active) {
-            if(this.receptor[what]._bindings.length > 0){
+            if (this.receptor[what]._bindings.length > 0) {
                 return this.receptor[what].dispatch.apply(this.receptor[what], args);
             } else {
                 return 'no bindings';

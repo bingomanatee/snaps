@@ -50,7 +50,7 @@ else if(typeof define === 'function' && define.amd) {
  * the Terminal does this for a suite of signals.
  */
 
-function Terminal(initial, locked) {
+function Terminal (initial, locked) {
     this.receptor = {};
     this.locked = false;
     if (initial) {
@@ -109,8 +109,7 @@ Terminal.prototype.listenOnce = function () {
     }
 };
 
-Terminal.prototype.checkWhat = function (what, doErr) {
-
+Terminal.prototype.checkLocks = function (what, doErr) {
     if (this.locked && (this.locked.length)) {
         for (var l = 0; l < this.locked.length; ++l) {
             if (what == this.locked[l]) {
@@ -122,6 +121,12 @@ Terminal.prototype.checkWhat = function (what, doErr) {
             }
         }
     }
+};
+
+Terminal.prototype.checkWhat = function (what, doErr) {
+    if (!this.checkLocks(what, doErr)) {
+        return 0;
+    }
     return this.receptor[what] ? this.receptor[what]._bindings.length : 0;
 };
 
@@ -129,18 +134,18 @@ Terminal.prototype.listen = function () {
     var args = _.toArray(arguments);
     var what = SNAPS.assert.notempty(args.shift(), 'string');
     var receptor;
-
-    if (!this.checkWhat(what, true)) {
+    if (!this.receptor[what]) {
         this.receptor[what] = receptor = new signals.Signal();
-    }else {
+    } else {
+        this.checkLocks(what, true);
         receptor = this.receptor[what];
     }
 
     if (check.array(args[0])) {
-        var fn = SNAPS.assert.fn(args[0][0]);
+         SNAPS.assert.fn(args[0][0]);
         receptor.add.apply(receptor, args[0]);
     } else {
-        var fn = SNAPS.assert.fn(args[0]);
+         SNAPS.assert.fn(args[0]);
         receptor.add.apply(receptor, args);
     }
 };
@@ -151,7 +156,7 @@ Terminal.prototype.dispatch = function () {
 
     if (this.receptor[what]) {
         if (this.receptor[what].active) {
-            if(this.receptor[what]._bindings.length > 0){
+            if (this.receptor[what]._bindings.length > 0) {
                 return this.receptor[what].dispatch.apply(this.receptor[what], args);
             } else {
                 return 'no bindings';
@@ -1063,6 +1068,16 @@ Space.prototype.setWindow = function (window) {
     }.bind(this))
 };
 
+Space.prototype.getDocument = function(){
+    if (this.document) {
+        return this.document;
+    } else if (typeof document !== 'undefined') {
+        return document;
+    } else {
+        return null;
+    }
+};
+
 Space.prototype.resetTime = function () {
     this.start = new Date().getTime();
     this.time = 0;
@@ -1187,6 +1202,10 @@ Space.prototype.endEdition = function (currentEd) {
     }
 };
 
+Space.prototype.isEditing = function(){
+    return this.editionCompleted < this.editionStarted;
+};
+
 Space.prototype.update = function (next) {
     if (next) {
         this.nextTime();
@@ -1205,7 +1224,6 @@ Space.prototype.update = function (next) {
         snap = this.snaps[i];
         if (snap.active && (!snap.simple)) {
             if (snap.hasPendingChanges() || snap.blendCount > 0) {
-                //  console.log('queueing for update: ', snap);
                 updatedSnaps.push(snap);
             }
             snap.update(null, currentEd);
@@ -1796,7 +1814,9 @@ Snap.prototype.set = function(prop, value, immediate) {
         this._props[prop] = value;
         return this;
     }
-    this.retireOtherBlends(prop);
+    if (this.blendCount > 0){
+        this.retireOtherBlends(prop);
+    }
     this._myProps[prop] = value;
 
     if (this.space.editionStarted > this.space.editionCompleted) {
@@ -1915,7 +1935,15 @@ Snap.prototype.merge = function(prop, value, combiner) {
  * @returns {Object}
  */
 Snap.prototype.state = function() {
-    return _.clone(this._props);
+    var out = {};
+
+    for (var p in this._props){
+        out[p] = this._props[p];
+        if (/'/.test(this._props[p])){
+            debugger;
+        }
+    }
+    return out;
 };
 
 /**
@@ -1987,7 +2015,7 @@ Snap.prototype.dispatch = function (message) {
  * @param keys {[{String}]} -- optional -- a list of changes to look for
  * @returns {{Object} || false}
  */
-Snap.prototype.pending = function(keys) {
+Snap.prototype.pending = function (keys) {
     if (this.simple) {
         return false;
     }
@@ -2016,7 +2044,7 @@ Snap.prototype.pending = function(keys) {
  *
  * @returns {*}
  */
-Snap.prototype.hasPendingChanges = function() {
+Snap.prototype.hasPendingChanges = function () {
     if (arguments.length) {
         for (var i = 0; i < arguments.length; ++i) {
             if (this._pendingChanges.hasOwnProperty(arguments[i])) {
@@ -2034,7 +2062,7 @@ Snap.prototype.hasPendingChanges = function() {
  * @param broadcast {boolean} if true, will also update the Snap's children.
  * @param edition {int} the current update cycle; if called in a Space.update cycle will be provided
  */
-Snap.prototype.update = function(broadcast, edition) {
+Snap.prototype.update = function (broadcast, edition) {
 
     var localUpdate = false;
     if (!edition) {
@@ -2062,7 +2090,7 @@ Snap.prototype.update = function(broadcast, edition) {
  * @type {number}
  */
 var changeSet = 0;
-_updateProperties = function() {
+function _updateProperties () {
     if (this.simple) {
         return;
     }
@@ -2084,37 +2112,47 @@ _updateProperties = function() {
     this._pendingChanges = {};
     SNAPS.cleanObj(this._props);
     SNAPS.cleanObj(this._myProps);
-};
+}
+;
 
-_updatePhysics = function() {
+_updatePhysics = function () {
     var changes = {};
 };
 
-Snap.prototype.initUpdated = function() {
-    this.listen('updated', function(broadcast, edition) {
+Snap.prototype.initUpdated = function () {
+    this.listen('updated', function (broadcast, edition) {
         if ((!this.active) || (this.simple)) {
             return false;
         }
 
+        /**
+         * note - using the "long form" style of accessing a terminal's receptor.
+         * Squeezing every bit of efficiency out of the system as this is a frequently
+         * ran block of code.
+         * In app code, unless you are a total efficiency freak,
+         * call this.dispatch('updateBlends', broadcast, edition)
+         */
         if (this.blendCount > 0) {
             this.terminal.receptor.updateBlends.dispatch(broadcast, edition);
-            this.terminal.receptor.updateProperties.dispatch('blends');
         }
 
         if (this.physicsCount > 0) {
             this.terminal.receptor.updatePhysics.dispatch(broadcast, edition);
         }
 
+        // @Deprecated: observers are est replaced with property watchers.
+        // if you wan to react to any and all updates watch for updateProperties.
         if (this.observers.length) {
             this.terminal.receptor.updateObservers.dispatch(broadcast, edition);
         }
 
         if (check.not.emptyObject(this._pendingChanges)) {
-            this.terminal.receptor.updateProperties.dispatch(broadcast, edition);
+            this.dispatch('updateProperties', broadcast, edition);
         }
 
         if (broadcast && this.hasNodeChildren()) {
             var children = this.nodeChildren();
+            // @TODO: flatten recursion?
             for (var c = 0; c < children.length; ++c) {
                 children[c].update(broadcast, edition);
             }
@@ -2254,13 +2292,13 @@ var DomElement = function (space, id, ele, parent) {
     this.styleSnap = space.snap();
     this.link('resource', this.styleSnap).meta = 'style';
     // although this is referenced as a direct property we add it to the links to enable cascading delete
+    this.styleSnap.listen('updateProperties', _styleSnapChanges, this);
 
     this.attrSnap = space.snap();
     this.link('resource', this.attrSnap).meta = 'attr';
     // although this is referenced as a direct property we add it to the links to enable cascading delete
-
     this.attrSnap.listen('updateProperties', _attrSnapChanges, this);
-    this.styleSnap.listen('updateProperties', _styleSnapChanges, this);
+
     this.propChangeTerminal.listen('innerhtml', function (newContent) {
         this.h(newContent);
     }, this);
@@ -2297,52 +2335,6 @@ SNAPS.typeAliases.SNAP.push(DomElement.prototype.$TYPE);
 
 DomElement.prototype.domNodeName = function () {
     return this.has('tag') ? this.get('tag') : 'div';
-};
-
-//@TODO: is this async?
-DomElement.prototype.element = DomElement.prototype.e = function () {
-    if (!this._element) {
-        if (typeof (document) == 'undefined') {
-            if (this.space.document) {
-                this._element = this.space.document.createElement(this.domNodeName());
-                this.dispatch('element', this._element);
-            } else {
-                // this may not work if env is async....
-                SNAPS.jsdom = require('jsdom');
-                var self = this;
-
-                SNAPS.jsdom.env(
-                    '<html><body></body></html>',
-                    [],
-                    function (errors, w) {
-                        window = w;
-                        self.space.window = w;
-                        self.space.document = window.document;
-                        self.element = space.document.createElement(self.domNodeName());
-                        self.dispatch('element', self.element);
-                    }
-                );
-            }
-        } else {
-            this.window = window; // global
-            this.document = document; // global
-            this._element = document.createElement(this.domNodeName());
-        }
-    }
-    return this._element;
-};
-
-DomElement.prototype.style = function (prop, value) {
-    if (typeof(prop) == 'object') {
-        for (var p in prop) {
-            this.styleSnap.set(p, prop[p]);
-        }
-    } else if (arguments.length < 2) {
-        return this.styleSnap.get(prop);
-    } else {
-        this.styleSnap.set(prop, value)
-    }
-    return this;
 };
 
 DomElement.prototype.contains = function (x, y) {
@@ -2430,77 +2422,6 @@ DomElement.prototype.document = function () {
     return this.e() ? this.e().document : null;
 };
 
-DomElement.prototype.h = DomElement.prototype.html = function (innerhtml) {
-    if (arguments.length > 0) {
-        if (this.hasDomChildren()) {
-            throw new Error('attempting to add content to a browserDom snap with domChildren');
-        }
-
-        this.e().innerHTML = innerhtml;
-        return this;
-    } else {
-        return this.e().innerHTML;
-    }
-};
-
-DomElement.prototype.a = function (prop, value) {
-
-    if (dataRE.test(prop)) {
-        var args = _.toArray(arguments);
-        return this.d.apply(this, args);
-    }
-    if (arguments.length > 1) {
-        this.e().setAttribute(prop, value);
-        return this;
-    } else {
-        return this.e().getAttribute(prop);
-    }
-};
-
-/**
- * directly write to the domElements's style. This for the most part should be done
- * through the snap system.
- *
- * parameters can be:
- *  -- prop (returns elements current value)
- *  -- prop, value
- *  -- prop, value, unit
- *  -- config object (prop/value pairs)
- *  -- config, unit
- *
- */
-DomElement.prototype.s = function () {
-
-    var args = _.toArray(arguments);
-    var prop = args[0];
-    var value
-    if (typeof(prop) == 'object') {
-
-        // this recursive call allows for a config object with subsequent arguments.
-        for (var p in prop) {
-            this.s(p, prop[p]);
-        }
-        return this;
-    } else if (args.length > 1) {
-        value = args[1];
-
-        // append 'px' (pixels) to numeric properties that require numeric units
-        if (typeof(value) == 'number' && _pxProps[prop.toLowerCase()]) {
-            var unit;
-            if (args.length > 2) {
-                unit = args[2]
-            } else {
-                unit = 'px';
-            }
-            value = Math.round(value) + unit;
-        }
-        this.e().style[prop] = value;
-        return this;
-    } else {
-        return this.e().style[prop];
-    }
-};
-
 DomElement.prototype.removeElement = function () {
     var parent = this.e().parentNode;
     if (parent) {
@@ -2552,7 +2473,7 @@ DomElement.prototype.domParentNodes = function () {
 DomElement.prototype.domParent = function () {
     return this.domParents()[0];
 }
-    DomElement.prototype.domParents = function () {
+DomElement.prototype.domParents = function () {
     var myId = this.id;
 
     var links = this.getLinks('node', function (n) {
@@ -2650,24 +2571,6 @@ DomElement.prototype._initDataSnap = function () {
     }
 };
 
-function _styleSnapChanges () {
-    var state = this.styleSnap.state();
-    console.log('setting style to ', require('util').inspect('state'));
-    this.s(state);
-}
-
-function _attrSnapChanges () {
-    for (var p in this.attrSnap.lastChanges) {
-        var value = this.attrSnap.lastChanges[p].pending;
-
-        if (value === SNAPS.DELETE) {
-            this.e().removeAttribute(p);
-        } else {
-            this.a(p, value);
-        }
-    }
-}
-
 /**
  * iteratively recursing through the DomElement tree, sending the message/data to the terminals of each DomElement
  * @param message
@@ -2681,7 +2584,7 @@ Snap.prototype.domBroadcast = function (message, data) {
     while (snaps.length) {
         var snap = snaps.shift(snaps);
         snap.terminal.dispatch(message, data);
-        if (snap.hasDomChildren ()) {
+        if (snap.hasDomChildren()) {
             snaps.unshift.apply(snaps, snap.domChildren());
         }
     }
@@ -2730,6 +2633,154 @@ var _pxProps = _.reduce('border-bottom-width,border-left-width,border-radius,bor
         return out;
     }, {});
 
+function _styleSnapChanges () {
+    var state = this.styleSnap.state();
+    this.s(state);
+}
+
+function _attrSnapChanges () {
+    for (var p in this.attrSnap.lastChanges) {
+        var value = this.attrSnap.lastChanges[p].pending;
+
+        if (value === SNAPS.DELETE) {
+            this.e().removeAttribute(p);
+        } else {
+            this.a(p, value);
+        }
+    }
+}
+
+//@TODO: is this async?
+DomElement.prototype.element = DomElement.prototype.e = function () {
+    if (!this._element) {
+        if (typeof (document) == 'undefined') {
+            if (this.space.document) {
+                this._element = this.space.document.createElement(this.domNodeName());
+                this.dispatch('element', this._element);
+            } else {
+                // this may not work if env is async....
+                SNAPS.jsdom = require('jsdom');
+                var self = this;
+
+                SNAPS.jsdom.env(
+                    '<html><body></body></html>',
+                    [],
+                    function (errors, w) {
+                        window = w;
+                        self.space.window = w;
+                        self.space.document = window.document;
+                        self.element = space.document.createElement(self.domNodeName());
+                        self.dispatch('element', self.element);
+                    }
+                );
+            }
+        } else {
+            this.window = window; // global
+            this.document = document; // global
+            this._element = document.createElement(this.domNodeName());
+        }
+    }
+    return this._element;
+};
+
+DomElement.prototype.style = function (prop, value, immediate) {
+    if (typeof(prop) == 'object') {
+        for (var p in prop) {
+            this.styleSnap.set(p, prop[p]);
+        }
+    } else if (arguments.length < 2) {
+        return this.styleSnap.get(prop);
+    } else {
+        this.styleSnap.set(prop, value);
+        if (this.space.isUpdating()) {
+            this.s(prop, value);
+        }
+    }
+    return this;
+};
+
+DomElement.prototype.h = DomElement.prototype.html = function (innerhtml) {
+    if (arguments.length > 0) {
+        if (this.hasDomChildren()) {
+            throw new Error('attempting to add content to a browserDom snap with domChildren');
+        }
+
+        this.e().innerHTML = innerhtml;
+        return this;
+    } else {
+        return this.e().innerHTML;
+    }
+};
+
+DomElement.prototype.a = function (prop, value) {
+    if (dataRE.test(prop)) {
+        var args = _.toArray(arguments);
+        return this.d.apply(this, args);
+    }
+    if (arguments.length > 1) {
+        this.e().setAttribute(prop, value);
+        return this;
+    } else if (typeof prop == 'object') {
+        for (var p in prop) {
+            this.e().setAttribute(p, prop[p]);
+        }
+    } else {
+        return this.e().getAttribute(prop);
+    }
+};
+
+/**
+ * directly write to the domElements's style. This for the most part should be done
+ * through the snap system.
+ *
+ * parameters can be:
+ *  -- prop (returns elements current value)
+ *  -- prop, value
+ *  -- prop, value, unit
+ *  -- config object (prop/value pairs)
+ *  -- config, unit
+ *
+ */
+DomElement.prototype.s = function () {
+
+    var args = _.toArray(arguments);
+    var prop = args[0];
+    var value;
+    if (_.isArray(prop)) {
+        value = prop[1];
+        prop = prop[0];
+    }
+    if (typeof(prop) == 'object') {
+
+        // this recursive call allows for a config object with subsequent arguments.
+        _.each(prop, function (value, prop) {
+            if (typeof(value) == 'number' && _pxProps[prop.toLowerCase()]) {
+                var unit = 'px';
+                value = Math.round(value) + unit;
+            }
+            this.e().style[prop] = value;
+        }, this);
+        return this;
+    } else if (args.length > 1) {
+        value = args[1];
+
+        // append 'px' (pixels) to numeric properties that require numeric units
+        if (typeof(value) == 'number' && _pxProps[prop.toLowerCase()]) {
+            var unit;
+            if (args.length > 2) {
+                unit = args[2]
+            } else {
+                unit = 'px';
+            }
+            value = Math.round(value) + unit;
+        }
+        this.e().style[prop] = value;
+        return this;
+    } else {
+        return this.e().style[prop];
+    }
+};
+
 var pxRE = /([\d.]+)px/;
 var pctRE = /([\d.]+)%/;
 
@@ -2771,7 +2822,6 @@ DomElement.prototype.size = function (sizeName, value, unit) {
 
         if (size.get('unit', true) == '%') {
             var self = this;
-            debugger;
 
             function orf() {
                 self.clearProp(sizeName + 'Pixels', true);
@@ -2902,7 +2952,7 @@ _domPixels = function(sizeName) {
 
     if (!domParents.length) {
         // get from document
-        var document = this.document();
+        var document = this.space.getDocument();
         if (document) {
             switch (sizeName) {
                 case 'width':
@@ -3061,11 +3111,8 @@ function _updateSize() {
         } else if (unit == 'px'){
             out = value + 'px';
         }
-        console.log('setting %s to %s', sizeName, out);
-        debugger;
-        dom.style(sizeName, out);
+        dom.style(sizeName, out, true);
     }
-
 }
 
     

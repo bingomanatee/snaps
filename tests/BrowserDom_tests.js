@@ -155,35 +155,65 @@ describe('SNAPS', function() {
                 });
             });
 
-            describe('attributes and elements', function() {
-                var space, bd;
-                var document, window, div;
+        });
 
-                before(function(done) {
+        describe('style()', function() {
+            var space, bd;
+            var document, window, div;
 
-                    dom.env(
-                        '<html><body></body></html>',
-                        [],
-                        function(errors, w) {
-                            window = w;
-                            document = window.document;
-                            div = document.createElement('div');
+            before(function(done) {
 
-                            space = SNAPS.space();
-                            bd = space.bd(div, document.body);
-                            bd.a('name', 'foo').s('color', 'rgb(255,0,0)');
-                            space.update();
-                            done();
-                        }
-                    );
-                });
+                dom.env(
+                    '<html><body></body></html>',
+                    [],
+                    function(errors, w) {
+                        window = w;
+                        document = window.document;
+                        div = document.createElement('div');
 
-                it('should render div', function() {
-                    div.outerHTML.should.eql("<div name=\"foo\" style=\"color: rgb(255, 0, 0);\"></div>")
-                });
+                        space = SNAPS.space();
+                        bd = space.bd(div, document.body);
+                        bd.attr('name', 'foo');
+                        bd.style('color', 'rgb(255,200,200)');
+                        space.update();
+                        done();
+                    }
+                );
             });
 
+            it('should render div', function() {
+                div.outerHTML.should.eql("<div style=\"color: rgb(255, 200, 200);\" name=\"foo\"></div>")
+            });
         });
+
+        describe('a() and s()', function() {
+            var space, bd;
+            var document, window, div;
+
+            before(function(done) {
+
+                dom.env(
+                    '<html><body></body></html>',
+                    [],
+                    function(errors, w) {
+                        window = w;
+                        document = window.document;
+                        div = document.createElement('div');
+
+                        space = SNAPS.space();
+                        bd = space.bd(div, document.body);
+                        bd.a('name', 'foo').s('color', 'rgb(255,0,0)');
+                        space.update();
+                        done();
+                    }
+                );
+            });
+
+            it('should render div', function() {
+                div.outerHTML.should.eql("<div name=\"foo\" style=\"color: rgb(255, 0, 0);\"></div>")
+            });
+        });
+
 
         describe('#set', function() {
             var space, bd;

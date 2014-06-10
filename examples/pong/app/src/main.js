@@ -12,6 +12,7 @@ define(function (require, exports, module) {
     var BLOCKWIDTHPERCENT = big ? 4 : 5;
     var BALL_COUUNT = 60;
     var WALLHEIGHT = 15;
+    var BLOCKHEIGHTOFFSET = (BLOCKHEIGHT + BLOCKMARGIN);
 
     var SNAPS = require('./snaps');
     var xPanel, yPanel;
@@ -24,7 +25,7 @@ define(function (require, exports, module) {
     var back = space.bd()
         .attr('class', 'back abs')
         .addElement();
-    back.addBox({widthPercent: 100, heightPercent: 100});
+    back.size('width', 100, '%').size('height', 100, '%');
 
     /**
      * creating feedback panels for coordinates of lead ball
@@ -51,16 +52,17 @@ define(function (require, exports, module) {
             top: WALLHEIGHT
         })
         .addElement();
-    innerCourt.addBox({width: window.innerWidth - (2 * WALLHEIGHT), heightPercent: 100});
+    innerCourt.size('width', window.innerWidth - (2 * WALLHEIGHT), 'px').size('height', 100, '%');
 
     var blocks = _.flatten(_.map(_.range(0, 100, BLOCKWIDTHPERCENT), function (xPercent) {
         return _.map(_.range(0, 8), function (row) {
-            var block = space.bd()
+            var block = space.bd(null, innerCourt)
                 .attr('class', 'abs block')
                 .style('left', xPercent + '%')
-                .style('top', (BLOCKHEIGHT + BLOCKMARGIN) * row)
+                .style('top', WALLHEIGHT + BLOCKHEIGHTOFFSET * row + 'px')
                 .addElement(innerCourt);
-            block.addBox({widthPercent: BLOCKWIDTHPERCENT, height: BLOCKHEIGHT});
+
+            block.size('width', BLOCKWIDTHPERCENT, '%').size('height', BLOCKHEIGHT, 'px');
             return block;
         });
     }));
@@ -73,18 +75,19 @@ define(function (require, exports, module) {
         .style('right', 0)
         .attr('class', 'abs wall')
         .addElement();
-    rightWall.addBox({heightPercent: 100, width: WALLHEIGHT});
+
+    rightWall.size('height', 100, '%').size('width', WALLHEIGHT, 'px');
 
     var leftWall = space.bd()
         .style('left', 0)
         .attr('class', 'abs wall')
         .addElement();
-    leftWall.addBox({heightPercent: 100, width: WALLHEIGHT});
+    leftWall.size('height', 100, '%').size('width', WALLHEIGHT, 'px');
 
     var topWall = space.bd()
-        .attr('class', 'abs wall')
+        .attr('class', 'abs wall wall-top')
         .addElement();
-    topWall.addBox({height: WALLHEIGHT});
+    topWall.size('height', WALLHEIGHT, 'px').size('width', 100, '%');
 
     /**
      * creating ball trail
@@ -95,7 +98,7 @@ define(function (require, exports, module) {
             .addElement()
             .attr('class', 'abs ball')
             .style('opacity', 1 / (1 + i));
-        ball.addBox({width: BALLSIZE, height: BALLSIZE});
+        ball.size('width', BALLSIZE, 'px').size('height', BALLSIZE, 'px');
         return ball;
     }
 
@@ -111,7 +114,6 @@ define(function (require, exports, module) {
     }
 
     var velocity = Math.sqrt((x_speed * x_speed) + (y_speed * y_speed));
-    console.log('velocity: ', velocity);
     var velScale = (big ? 0.5 : 1) / velocity;
 
     x_speed *= velScale;
@@ -138,7 +140,7 @@ define(function (require, exports, module) {
         .attr('class', 'abs paddle')
         .addElement()
         .style('bottom', PADDLEBOTTOM);
-    paddle.addBox({width: PADDLEWIDTH, height: PADDLEHEIGHT});
+    paddle.size('width', PADDLEWIDTH, 'px').size('height', PADDLEHEIGHT, 'px');
 
     /**
      * creating display for game ending overlay
@@ -149,14 +151,16 @@ define(function (require, exports, module) {
         .addElement()
         .style({display: 'none', opacity: 0})
         .attr('class', 'abs');
+    centerPanel
+        .size('width', 100, '%')
+        .size('height', 1, 'px');
 
-    centerPanel.addBox({widthPercent: 100, height: 1});
     var goPanel = space.bd(null, centerPanel)
         .attr('class', 'abs go-panel')
         .style({left: ((100 - GOPANELWIDTH ) / 2) + '%', top: -GOPANELHEIGHT - window.innerHeight / 2})
         .innerHTML('GAME OVER')
         .addElement();
-    goPanel.addBox({widthPercent: GOPANELWIDTH, height: GOPANELHEIGHT});
+    goPanel.size('width', GOPANELWIDTH, '%').size('height', GOPANELHEIGHT, 'px');
     centerPanel.link(goPanel);
 
     var scorePanel = space.bd(null, centerPanel)
@@ -164,7 +168,7 @@ define(function (require, exports, module) {
         .style({left: ((100 - GOPANELWIDTH ) / 2) + '%', top: GOPANELHEIGHT / 2, opacity: 0})
         .innerHTML('score: 0')
         .addElement(centerPanel.e());
-    scorePanel.addBox({widthPercent: GOPANELWIDTH, height: GOPANELHEIGHT});
+    scorePanel.size('width', GOPANELWIDTH, '%').size('height', GOPANELHEIGHT, 'px');
     centerPanel.link(scorePanel);
 
     /**
@@ -172,7 +176,7 @@ define(function (require, exports, module) {
      */
 
     var front = space.bd().addElement().attr('class', 'abs');
-    front.addBox({widthPercent: 100, heightPercent: 100});
+    front.size('width', 100, '%').size('height', 100, '%');
 
     front.e().addEventListener('mousemove', function (e) {
         paddle.style('left', e.clientX - PADDLEWIDTH / 2);
@@ -271,7 +275,6 @@ define(function (require, exports, module) {
                 if (y >= bottom && y_dir > 0) {
                     var paddleLeft = paddle.style('left');
                     if (!slip && (x > paddleLeft) && (x < paddleLeft + PADDLEWIDTH)) {
-
                         y -= y - bottom;
                         y_dir *= -1;
                         _startCooldown('paddle');

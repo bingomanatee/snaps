@@ -4,7 +4,7 @@
  * @param keys {[{String}]} -- optional -- a list of changes to look for
  * @returns {{Object} || false}
  */
-Snap.prototype.pending = function(keys) {
+Snap.prototype.pending = function (keys) {
     if (this.simple) {
         return false;
     }
@@ -33,7 +33,7 @@ Snap.prototype.pending = function(keys) {
  *
  * @returns {*}
  */
-Snap.prototype.hasPendingChanges = function() {
+Snap.prototype.hasPendingChanges = function () {
     if (arguments.length) {
         for (var i = 0; i < arguments.length; ++i) {
             if (this._pendingChanges.hasOwnProperty(arguments[i])) {
@@ -51,7 +51,7 @@ Snap.prototype.hasPendingChanges = function() {
  * @param broadcast {boolean} if true, will also update the Snap's children.
  * @param edition {int} the current update cycle; if called in a Space.update cycle will be provided
  */
-Snap.prototype.update = function(broadcast, edition) {
+Snap.prototype.update = function (broadcast, edition) {
 
     var localUpdate = false;
     if (!edition) {
@@ -79,7 +79,7 @@ Snap.prototype.update = function(broadcast, edition) {
  * @type {number}
  */
 var changeSet = 0;
-_updateProperties = function() {
+function _updateProperties () {
     if (this.simple) {
         return;
     }
@@ -101,37 +101,47 @@ _updateProperties = function() {
     this._pendingChanges = {};
     SNAPS.cleanObj(this._props);
     SNAPS.cleanObj(this._myProps);
-};
+}
+;
 
-_updatePhysics = function() {
+_updatePhysics = function () {
     var changes = {};
 };
 
-Snap.prototype.initUpdated = function() {
-    this.listen('updated', function(broadcast, edition) {
+Snap.prototype.initUpdated = function () {
+    this.listen('updated', function (broadcast, edition) {
         if ((!this.active) || (this.simple)) {
             return false;
         }
 
+        /**
+         * note - using the "long form" style of accessing a terminal's receptor.
+         * Squeezing every bit of efficiency out of the system as this is a frequently
+         * ran block of code.
+         * In app code, unless you are a total efficiency freak,
+         * call this.dispatch('updateBlends', broadcast, edition)
+         */
         if (this.blendCount > 0) {
             this.terminal.receptor.updateBlends.dispatch(broadcast, edition);
-            this.terminal.receptor.updateProperties.dispatch('blends');
         }
 
         if (this.physicsCount > 0) {
             this.terminal.receptor.updatePhysics.dispatch(broadcast, edition);
         }
 
+        // @Deprecated: observers are est replaced with property watchers.
+        // if you wan to react to any and all updates watch for updateProperties.
         if (this.observers.length) {
             this.terminal.receptor.updateObservers.dispatch(broadcast, edition);
         }
 
         if (check.not.emptyObject(this._pendingChanges)) {
-            this.terminal.receptor.updateProperties.dispatch(broadcast, edition);
+            this.dispatch('updateProperties', broadcast, edition);
         }
 
         if (broadcast && this.hasNodeChildren()) {
             var children = this.nodeChildren();
+            // @TODO: flatten recursion?
             for (var c = 0; c < children.length; ++c) {
                 children[c].update(broadcast, edition);
             }

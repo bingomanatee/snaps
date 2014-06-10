@@ -39,7 +39,6 @@ DomElement.prototype.size = function (sizeName, value, unit) {
 
         if (size.get('unit', true) == '%') {
             var self = this;
-            debugger;
 
             function orf() {
                 self.clearProp(sizeName + 'Pixels', true);
@@ -170,7 +169,7 @@ _domPixels = function(sizeName) {
 
     if (!domParents.length) {
         // get from document
-        var document = this.document();
+        var document = this.space.getDocument();
         if (document) {
             switch (sizeName) {
                 case 'width':
@@ -329,9 +328,6 @@ function _updateSize() {
         } else if (unit == 'px'){
             out = value + 'px';
         }
-        console.log('setting %s to %s', sizeName, out);
-        debugger;
-        dom.style(sizeName, out);
+        dom.style(sizeName, out, true);
     }
-
 }
