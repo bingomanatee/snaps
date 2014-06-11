@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="viewport" content="width=640" />
+
+    <link rel="stylesheet" href="stylesheets/core.css" media="screen"/>
+    <link rel="stylesheet" href="stylesheets/mobile.css" media="handheld, only screen and (max-device-width:640px)"/>
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css"/>
+
+    <script type="text/javascript" src="javascripts/modernizr.js"></script>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <script type="text/javascript" src="javascripts/headsmart.min.js"></script>
+    <script type="text/javascript">
+      $(document).ready(function () {
+        $('#main_content').headsmart()
+      })
+    </script>
+    <title>Snaps by bingomanatee</title>
+  </head>
+
+  <body>
+    <a id="forkme_banner" href="https://github.com/bingomanatee/snaps">View on GitHub</a>
+    <div class="shell">
+
+      <header>
+        <span class="ribbon-outer">
+          <span class="ribbon-inner">
+            <h1>Snaps</h1>
+            <h2>Creates a network of information that can be updated, interdependent and multi-relational. </h2>
+          </span>
+          <span class="left-tail"></span>
+          <span class="right-tail"></span>
+        </span>
+      </header>
+
+      <section id="downloads">
+        <span class="inner">
+          <a href="https://github.com/bingomanatee/snaps/zipball/master" class="zip"><em>download</em> .ZIP</a><a href="https://github.com/bingomanatee/snaps/tarball/master" class="tgz"><em>download</em> .TGZ</a>
+        </span>
+      </section>
+
+
+      <span class="banner-fix"></span>
+
+
+      <section id="main_content">
+        <h1>
+<a name="snaps-the-way-js-ux-should-be" class="anchor" href="#snaps-the-way-js-ux-should-be"><span class="octicon octicon-link"></span></a>SNAPS: the way JS UX should be</h1>
+
+<p>I recently encountered a rendering engine that does so much right that the things that are wrong with it are getting accepted as "the ways that should be." </p>
+
+<p>I am attempting to address these things in code and show how easy it is to do things right. </p>
+
+<h2>
+<a name="1-total-dom-control" class="anchor" href="#1-total-dom-control"><span class="octicon octicon-link"></span></a>1: Total DOM control</h2>
+
+<p>Instead of having widgets which seem like they are ashamed of the DOM, SNAPS embraces DOM wholly by allowing you to fully access and set all parts of a DomElement (attributes, styles, content), not just a subset of "Blessed" attributes and properties</p>
+
+<h2>
+<a name="2-embracing-polyglot-programming" class="anchor" href="#2-embracing-polyglot-programming"><span class="octicon octicon-link"></span></a>2: Embracing polyglot programming</h2>
+
+<p>Instead of using fully customized physics, 3D and event systems, Snaps uses proven, available engines like THREE, Box2D and Signal. This keeps standard systems as part of the frame, and doesn't bloat itself with reinventions of problems that are largely solved.</p>
+
+<h2>
+<a name="3-designed-for-threading" class="anchor" href="#3-designed-for-threading"><span class="octicon octicon-link"></span></a>3: Designed for Threading</h2>
+
+<p>Snaps is designed to enable easy export of data across the net, or threads, to take advantage of the emerging goodness of WebWorkers. </p>
+
+<h2>
+<a name="4-a-broad-open-network-of-shared-components" class="anchor" href="#4-a-broad-open-network-of-shared-components"><span class="octicon octicon-link"></span></a>4: A broad, open network of shared components</h2>
+
+<p>Snaps uses a collection of Snap instances connected with links to form complex patterns that allow intercommunication. Specialized Snap inheritors can manage DOM interactions, or take on simple tasks like managing the size of DOM elements. </p>
+
+<p>Snap instances can be linked in parent child, semantic links, open graphs and sets, to allow any sort of structure you may need; for instance, you can set a row height Snap as the resource link of several different Snap's, and a column width Snap as the resource link of several different Snap's, to enable a grid pattern. </p>
+
+<p>While this pattern was created to enable DOM management, it can be used to manage any number of graph/property/semantic problems. </p>
+
+<h2>
+<a name="5-synchronized-updates" class="anchor" href="#5-synchronized-updates"><span class="octicon octicon-link"></span></a>5: Synchronized updates</h2>
+
+<p>As part of the optimization process for distributed work, all of the updating of data is synchronized by a global <code>update()</code> call, allowing a gated output of data to a remote system. </p>
+      </section>
+
+      <footer>
+        <span class="ribbon-outer">
+          <span class="ribbon-inner">
+            <p>this project by <a href="https://github.com/bingomanatee">bingomanatee</a> can be found on <a href="https://github.com/bingomanatee/snaps">GitHub</a></p>
+          </span>
+          <span class="left-tail"></span>
+          <span class="right-tail"></span>
+        </span>
+        <p>Generated with <a href="http://pages.github.com">GitHub Pages</a> using Merlot</p>
+        <span class="octocat"></span>
+      </footer>
+
+    </div>
+
+    
+  </body>
+</html>
