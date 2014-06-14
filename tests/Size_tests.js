@@ -93,7 +93,7 @@ describe('SNAPS', function() {
                                 space = SNAPS.space();
                                 space.setWindow(window);
 
-                                domSnap = space.bd().addElement();
+                                domSnap = space.bd().elementToDom();
                                 done();
                             }
                         );
@@ -136,7 +136,7 @@ describe('SNAPS', function() {
                                 space = SNAPS.space();
                                 space.setWindow(window);
 
-                                domSnap = space.bd().addElement();
+                                domSnap = space.bd().elementToDom();
                                 done();
                             }
                         );
@@ -182,7 +182,7 @@ describe('SNAPS', function() {
                                 space = SNAPS.space();
                                 space.document = document;
 
-                                domSnap = space.bd().addElement();
+                                domSnap = space.bd().elementToDom();
                                 done();
                             }
                         );
@@ -218,7 +218,7 @@ describe('SNAPS', function() {
                                 space = SNAPS.space();
                                 space.document = document;
 
-                                domSnap = space.bd().addElement();
+                                domSnap = space.bd().elementToDom();
                                 done();
                             }
                         );
@@ -257,7 +257,7 @@ describe('SNAPS', function() {
                                     space = SNAPS.space();
                                     space.document = document;
 
-                                    domSnap = space.bd().addElement();
+                                    domSnap = space.bd().elementToDom();
 
                                     domChildSnap = space.bd(null, domSnap);
                                     done();

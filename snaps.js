@@ -1,14 +1,14 @@
 (function(root, factory) {
     if(typeof exports === 'object') {
-        module.exports = factory(require('lodash'), require('signals'));
+        module.exports = factory(require('lodash'), require('signals'), require('box2d'));
     }
     else if(typeof define === 'function' && define.amd) {
-        define('SNAPS', ['_', 'signals'], factory);
+        define('SNAPS', ['_', 'signals', 'box2d'], factory);
     }
     else {
-        root['SNAPS'] = factory(root._, root.signals);
+        root['SNAPS'] = factory(root._, root.signals, root.box2d);
     }
-}(this, function(_, signals) {
+}(this, function(_, signals, box2d) {
 
 var SNAPS = {
     signals: signals,
@@ -1499,10 +1499,10 @@ Snap.prototype.addLink = function (link) {
 };
 Snap.prototype.getLinksTo = function (linkType, filter, meta) {
     var links = this.getLinks(linkType, filter, meta);
-    var out= [];
-    for(var l = 0; l < links.length; ++l){
-        if (links[l].snaps[1].id == this.id){
-            out.push(links[0]);
+    var out = [];
+    for (var l = 0; l < links.length; ++l) {
+        if (links[l].snaps[1].id == this.id) {
+            out.push(links[l]);
         }
     }
     return out;
@@ -1510,10 +1510,10 @@ Snap.prototype.getLinksTo = function (linkType, filter, meta) {
 
 Snap.prototype.getLinksFrom = function (linkType, filter, meta) {
     var links = this.getLinks(linkType, filter, meta);
-    var out= [];
-    for(var l = 0; l < links.length; ++l){
-        if (links[l].snaps[0].id == this.id){
-            out.push(links[0]);
+    var out = [];
+    for (var l = 0; l < links.length; ++l) {
+        if (links[l].snaps[0].id == this.id) {
+            out.push(links[l]);
         }
     }
     return out;
@@ -1533,13 +1533,18 @@ Snap.prototype.getLinksFrom = function (linkType, filter, meta) {
  * @param meta {variant} sets a required value for a meta property of a link;
  */
 Snap.prototype.getLinks = function (linkType, filter, meta) {
+    if (this.simple) { // simple elements have no links
+        return [];
+    }
     var out = [];
     var link;
-    if (!this.simple) { // simple elements have no links
-        var l;
-        if (filter) {
-            if (_.isFunction(filter)) {
-                for (l = 0; l < this.links.length; ++l) {
+    var l;
+    var ll = this.links.length;
+
+    if (filter) {
+        switch (typeof(filter)) {
+            case 'function':
+                for (l = 0; l < ll; ++l) {
                     link = this.links[l];
                     if (meta && (link.meta != meta)) {
                         continue;
@@ -1548,13 +1553,13 @@ Snap.prototype.getLinks = function (linkType, filter, meta) {
                         out.push(link);
                     }
                 }
-            } else if (_.isObject(filter)) {
-                for (l = 0; l < this.links.length; ++l) {
+                break;
+
+            case 'object':
+                for (l = 0; l < ll; ++l) {
                     link = this.links[l];
-                    if (meta && (link.meta != meta)) {
-                        continue;
-                    }
-                    if (link.active && (link.linkType == linkType)) {
+
+                    if (link.active && ((typeof meta == 'undefined' )|| (link.meta == meta)) && (link.linkType == linkType)) {
                         for (var p in filter) {
                             if (link && link[p] != filter[p]) {
                                 link = null;
@@ -1565,58 +1570,120 @@ Snap.prototype.getLinks = function (linkType, filter, meta) {
                         }
                     }
                 }
-            } else {
-                throw new Error('cannot filter');
-            }
-        } else {
-            for (l = 0; l < this.links.length; ++l) {
-                link = this.links[l];
-                if (meta && (link.meta != meta)) {
-                    continue;
-                }
-                if (link.active && (link.linkType == linkType)) {
-                    out.push(link);
-                }
+                break;
+        }
+    } else { // no filter;
+        for (l = 0; l < ll; ++l) {
+            link = this.links[l];
+            if (link.active && (link.linkType == linkType) && ((typeof meta == 'undefined') || (link.meta == meta))) {
+                out.push(link);
             }
         }
     }
     return out;
 };
 
-Snap.prototype.nodeChildren = function (ids) {
+Snap.prototype.impulse = function (message, linkType, props, meta) {
+    SNAPS.impulse(this, message, linkType, props, meta);
+
+    return this;
+};
+
+/**
+ * prepare this snap to be destroyed;
+ * links all the children of this snap to its parent(s) if any
+ * and destroys its node links.
+ */
+Snap.prototype.unparent = function () {
+    if (this.simple) {
+        return;
+    }
+
+    var nodes = this.getLinks('nodes');
+    if (!nodes.length) {
+        return;
+    }
     var children = [];
-    for (var i = 0; i < this.links.length; ++i) {
-        var link = this.links[i];
-        if (link.active && link.linkType == 'node' && link.meta == 'nodeChild' && link.snaps[0].id == this.id) {
-            children.push(ids ? link.snaps[1].id : link.snaps[1]);
+    var parents = [];
+
+    for (var n = 0; n < nodes.length; ++n) {
+        var node = nodes[n];
+        if (node.snaps[0].id == this.id) { // child  link
+            children.push(node.snaps[1]);
+        } else if (node.snaps[1].id == this.id) {
+            parents.push(node.snaps[0]);
+        }
+        node.destroy();
+    }
+
+    for (var p = 0; p < parents.length; ++p) {
+        var parent = parents[p];
+        if (parent && parent.active && (!parent.simple)) {
+            for (var c = 0; c < children.length; ++c) {
+                parent.link(children[c]);
+            }
         }
     }
-    return children;
+
+    return this;
 };
 
-Snap.prototype.nodeParentNodes = function () {
-    var myId = this.id;
-    return this.getLinks('node', function (n) {
-        return n.snaps[1].id == myId;
-    });
-};
-
-Snap.prototype.nodeParents = function (ids) {
-    var nodes = this.nodeParentNodes();
-
-    return _.reduce(nodes, function (o, link) {
-        if (link.snaps[1].active) {
-            o.push(ids ? link.snaps[0].id : link.snaps[0]);
+Snap.prototype.resParent = function (link) {
+    for (var l = 0; l < this.links.length; ++l) {
+        if (this.links[l].linkType == 'resource' && (this.id == this.links[l].snaps[1].id)) {
+            return link ? this.links[l] : this.links[l].snaps[0];
         }
-        return o;
-    }, []);
+    }
+    return false;
 };
 
-Snap.prototype.nodeChildNodes = function () {
-    var myId = this.id;
-    return this.getLinks('node', function (link) {
-        return link.meta == 'nodeChild' && link.snaps[0].id == myId;
-    });
+/**
+ * Sends a miessage to the terminal of this node and all its children
+ * @param message
+ * @param data
+ */
+Snap.prototype.nodeBroadcast = function (message, data) {
+    var snaps = [this];
+
+    while (snaps.length) {
+        var snap = snaps.shift(snaps);
+        snap.terminal.dispatch(message, data);
+        snaps.unshift.apply(snaps, this.nodeChildren());
+    }
+};
+
+
+Snap.prototype.nodeChildLinks = function () {
+    return this.getLinksFrom('node');
+};
+
+/**
+ * returns links of type 'node' to this snap
+ * @returns {*}
+ */
+Snap.prototype.nodeParentLinks = function () {
+    return this.getLinksTo('node');
+};
+
+/**
+ * returns snaps of nodeParentNodes;
+ * @param ids
+ * @returns {*}
+ */
+Snap.prototype.nodeParents = function () {
+    var parents =  this.getLinksTo('node');
+    for (var p = 0; p < parents.length; ++p){
+        parents[p] = parents[p].snaps[0];
+    }
+    return parents;
+};
+
+Snap.prototype.nodeChildren = function () {
+    var children =  this.getLinksFrom('node');
+    for (var p = 0; p < children.length; ++p){
+        children[p] = children[p].snaps[1];
+    }
+    return children;
 };
 
 Snap.prototype.hasNodeChildren = function () {
@@ -1690,76 +1757,6 @@ Snap.prototype.nodeFamily = function () {
 
     return out;
 };
-
-Snap.prototype.impulse = function (message, linkType, props, meta) {
-    SNAPS.impulse(this, message, linkType, props, meta);
-
-    return this;
-};
-
-/**
- * prepare this snap to be destroyed;
- * links all the children of this snap to its parent(s) if any
- * and destroys its node links.
- */
-Snap.prototype.unparent = function () {
-    if (this.simple) {
-        return;
-    }
-
-    var nodes = this.getLinks('nodes');
-    if (!nodes.length) {
-        return;
-    }
-    var children = [];
-    var parents = [];
-
-    for (var n = 0; n < nodes.length; ++n) {
-        var node = nodes[n];
-        if (node.snaps[0].id == this.id) { // child  link
-            children.push(node.snaps[1]);
-        } else if (node.snaps[1].id == this.id) {
-            parents.push(node.snaps[0]);
-        }
-        node.destroy();
-    }
-
-    for (var p = 0; p < parents.length; ++p) {
-        var parent = parents[p];
-        if (parent && parent.active && (!parent.simple)) {
-            for (var c = 0; c < children.length; ++c) {
-                parent.link(children[c]);
-            }
-        }
-    }
-
-    return this;
-};
-
-Snap.prototype.resParent = function (link) {
-    for (var l = 0; l < this.links.length; ++l) {
-        if (this.links[l].linkType == 'resource' && (this.id == this.links[l].snaps[1].id)) {
-            return link ? this.links[l] : this.links[l].snaps[0];
-        }
-    }
-    return false;
-};
-
-/**
- * Sends a miessage to the terminal of this node and all its children
- * @param message
- * @param data
- */
-Snap.prototype.nodeBroadcast = function(message, data){
-    var snaps = [this];
-
-    while(snaps.length){
-        var snap = snaps.shift(snaps);
-        snap.terminal.dispatch(message, data);
-        snaps.unshift.apply(snaps, this.nodeChildren());
-    }
-};
-
 /**
  * check one or more properties for changes; enact handler when changes happen
  *
@@ -2215,7 +2212,7 @@ Space.prototype.bdDispatch = function () {
  * 1) linking both DomElements AND their elements is created by passing a parent to the DomElement
  *    at the time of creation.
  *
- * 2) linking JUST elements is created by passing a parent to the addElement method of the child.
+ * 2) linking JUST elements is created by passing a parent to the elementToDom method of the child.
  *
  * --------------- DomElement's element
  *
@@ -2224,7 +2221,7 @@ Space.prototype.bdDispatch = function () {
  * element until an action that requires an element to be present in which case, one is made.
  *
  * 1) any time you set an attribute or a style value, an element will be made.
- * 2) if you add a parent to the DomElement, either during construction or via addElement, an element
+ * 2) if you add a parent to the DomElement, either during construction or via elementToDom, an element
  *    will be made in the update cycle.
  * 3) if you manually call e(), innerHTML, s(), or a() (which are examples of 1) and 2) above)
  *    an element will be made.
@@ -2258,14 +2255,14 @@ Space.prototype.bdDispatch = function () {
  * --------------- Attaching DomElements to the Document
  *
  * just creating a DomElement instance does NOT place it in the browser's DOM tree. You must call
- * addElement to accomplish this. Until this is done, the DomElement will not be visible or part of the
+ * elementToDom to accomplish this. Until this is done, the DomElement will not be visible or part of the
  * DOM tree.
  *
- * The addElement method does one of two things:
+ * The elementToDom method does one of two things:
  *
  * 1) if it has no parameter it attaches its element to the space's document (which should be set
  * to the pages' document.)
- * 2) if a parent is passed to addElement there are one of two possibilities:
+ * 2) if a parent is passed to elementToDom there are one of two possibilities:
  *    a) the parent is a browser Element in which case the caller's element is appended to that parent.
  *    b) the parent is a DomElement in which case the caller's element is appended to
  *       the parent's element. However the DomElements are not themselves linked.
@@ -2274,7 +2271,7 @@ Space.prototype.bdDispatch = function () {
  *
  * There is two ways to put content inside elements:
  *
- * 1) actually parent DomElements to each other using addElement
+ * 1) actually parent DomElements to each other using elementToDom
  * 2) call innerHTML to put markup in hte DomElement's Element.
  *
  * You have to pick one - there is no real way to preserve nested DomElements AND allow you to
@@ -2322,10 +2319,10 @@ var DomElement = function (space, id, ele, parent) {
         var addElement = this.get('addElement');
         if (addElement) {
             if (addElement === true) {
-                this.addElement();
+                this.elementToDom();
             } else {
                 var parent = addElement.$TYPE == DomElement.prototype.$TYPE ? addElement.e() : addElement;
-                this.addElement(parent);
+                this.elementToDom(parent);
             }
         }
     }, this);
@@ -2383,14 +2380,14 @@ DomElement.prototype.destroy = function () {
  * then this boxDomElement is added to the body.
  *
  * Note - the relationship between DomElements and page elements probably should,
- * but does not have to, be kept parallel; however passing a parent to addElement
+ * but does not have to, be kept parallel; however passing a parent to elementToDom
  * will not make this node a child of that DomElement -- it will just enforce parent child
  * relationships between their elements.
  *
  * @param parent
  * @returns {DomElement}
  */
-DomElement.prototype.addElement = function (parent) {
+DomElement.prototype.elementToDom = function (parent) {
     if (!parent) {
         var parents = this.domParents();
         if (parents.length) {
@@ -2436,68 +2433,6 @@ DomElement.prototype.removeElement = function () {
 DomElement.prototype.setDebug = function (d) {
     this.debug = this.styleSnap.debug = this.attrSnap.debug = d;
     return this;
-};
-
-DomElement.prototype.domChildrenNodes = function () {
-    var myId = this.id;
-    return this.getLinks('node', function (n) {
-        return n.meta == 'dom' && n.snaps[0].id == myId;
-    });
-};
-
-DomElement.prototype.hasDomChildren = function () {
-    for (var l = 0; l < this.links.length; ++l) {
-        var link = this.links[l];
-        if (link.linkType == 'node' && link.meta == 'dom' && link.snaps[0].id == this.id) {
-            return true;
-        }
-    }
-    return false;
-};
-
-DomElement.prototype.domChildren = function () {
-    var children = [];
-    for (var l = 0; l < this.links.length; ++l) {
-        var link = this.links[l];
-        if (link.linkType == 'node' && link.meta == 'dom' && link.snaps[0].id == this.id) {
-            children.push(link.snaps[1]);
-        }
-    }
-    return children;
-};
-
-DomElement.prototype.domParentNodes = function () {
-    var myId = this.id;
-    return this.getLinks('node', function (n) {
-        return n.meta == 'dom' && n.snaps[1].id == myId;
-    });
-};
-
-DomElement.prototype.domParent = function () {
-    return this.domParents()[0];
-}
-DomElement.prototype.domParents = function () {
-    var myId = this.id;
-
-    var links = this.getLinks('node', function (n) {
-        return n.meta == 'dom' && n.snaps[1].id == myId;
-    });
-    var out = [];
-    for (var p = 0; p < links.length; ++p) {
-        out.push(links[p].snaps[0]);
-    }
-
-    return out;
-};
-
-DomElement.prototype.hasDomParent = function () {
-    for (var l = 0; l < this.links.length; ++l) {
-        var link = this.links[l];
-        if (link.linkType == 'node' && link.meta == 'dom' && link.snaps[1].id == this.id) {
-            return true;
-        }
-    }
-    return false;
 };
 
 /**
@@ -2605,6 +2540,57 @@ Space.prototype.domBroadcast = function (message, data) {
 
 };
 
+DomElement.prototype.domChildrenNodes = function () {
+    return this.getLinksFrom('node', null, 'dom');
+};
+
+DomElement.prototype.hasDomChildren = function () {
+    for (var l = 0; l < this.links.length; ++l) {
+        var link = this.links[l];
+        if (link.active && link.linkType == 'node' && link.meta == 'dom' && link.snaps[0].id == this.id) {
+            return true;
+        }
+    }
+    return false;
+};
+
+DomElement.prototype.domChildren = function () {
+    var children = [];
+    for (var l = 0; l < this.links.length; ++l) {
+        var link = this.links[l];
+        if (link.linkType == 'node' && link.meta == 'dom' && link.snaps[0].id == this.id) {
+            children.push(link.snaps[1]);
+        }
+    }
+    return children;
+};
+
+DomElement.prototype.domParentNodes = function () {
+    return this.getLinksTo('node', null, 'dom');
+};
+
+DomElement.prototype.domParent = function () {
+    var parents = this.getLinksTo('node', null, 'dom');
+    if (parents.length == 1) {
+        return parents[0].snaps[0];
+    } else {
+        return parents.length;
+    }
+};
+
+DomElement.prototype.domParents = function () {
+    return this.getLinksTo('node', null, 'dom');
+};
+
+DomElement.prototype.hasDomParent = function () {
+    for (var l = 0; l < this.links.length; ++l) {
+        var link = this.links[l];
+        if (link.active && link.linkType == 'node' && link.meta == 'dom' && link.snaps[1].id == this.id) {
+            return true;
+        }
+    }
+    return false;
+};
 var attrNames = 'accept,accept-charset,accesskey,action,align,alt,async,autocomplete,autofocus,autoplay,autosave,bgcolor,border,buffered,challenge,charset,checked,cite,class,code,codebase,color,cols,colspan,content,contenteditable,contextmenu,controls,coords,data,datetime,default,defer,dir,dirname,disabled,download,draggable,dropzone,enctype,for,form,formaction,headers,height,hidden,high,href,hreflang,http-equiv,icon,id,ismap,itemprop,keytype,kind,label,lang,language,list,loop,low,manifest,max,maxlength,media,method,min,multiple,name,novalidate,open,optimum,pattern,ping,placeholder,poster,preload,pubdate,radiogroup,readonly,rel,required,reversed,rows,rowspan,sandbox,scope,scoped,seamless,selected,shape,size,sizes,span,spellcheck,src,srcdoc,srclang,start,step,style,summary,tabindex,target,title,type,usemap,value,width,wrap'
 var _attrs = _.reduce(attrNames.split(','), function (out, p) {
     out[p] = true;
@@ -2793,13 +2779,14 @@ Space.prototype.size = function (sizeName, input, unit) {
     return size;
 };
 
-DomElement.prototype.sizeResource = function(sizeName) {
-    var id = this.id;
-    return this.getLinks('resource', function(link) {
-        return link.meta == sizeName && link.snaps[0].id == id;
-    })[0];
+DomElement.prototype.sizeResource = function (sizeName) {
+    var links = this.getLinksFrom('size', null, sizeName);
+    if (links.length == 1){
+        return links[0].snaps[0];
+    } else {
+        return links.length;
+    }
 };
-
 
 DomElement.prototype.size = function (sizeName, value, unit) {
     if (arguments.length < 2) {
@@ -2891,7 +2878,7 @@ function Size(space, id, sizeName, input, unit) {
 
 Size.prototype = Object.create(Snap.prototype);
 
-Size.prototype.pixels = function() {
+Size.prototype.pixels = function () {
     var value = this.get('value');
     var unit = this.get('unit');
     var sizeName = this.get('sizeName');
@@ -2902,7 +2889,7 @@ Size.prototype.pixels = function() {
         var pixelName = sizeName + 'Pixels';
 
         var parentSnap = this.resParent();
-        if (parentSnap.has(pixelName)){
+        if (parentSnap.has(pixelName)) {
             return parentSnap.get(pixelName);
         }
 
@@ -2919,13 +2906,13 @@ Size.prototype.pixels = function() {
     }
     return null;
 };
-        //@TODO: check document?
+//@TODO: check document?
 
 Size.prototype.sizeDomParent = function () {
     return this.getLinksTo('resource', null, this.get('sizeName'));
 };
 
-DomElement.prototype.pixels = function(sizeName) {
+DomElement.prototype.pixels = function (sizeName) {
     var pixelName = sizeName + 'Pixels';
     if (!this.has(pixelName)) {
         this.set(pixelName, _domPixels.call(this, sizeName));
@@ -2933,7 +2920,7 @@ DomElement.prototype.pixels = function(sizeName) {
     return this.get(pixelName);
 };
 
-_domPixels = function(sizeName) {
+_domPixels = function (sizeName) {
     var size = this.size(sizeName);
     var percent = null;
     if (!size) {
@@ -3068,7 +3055,9 @@ SNAPS.Size = Size;
  */
 function _updateSize() {
     var dom = this.resParent();
-    if (!dom) return;
+    if (!dom) {
+        return;
+    }
 
     var value = this.get('value');
     var unit = this.get('unit');
@@ -3079,40 +3068,45 @@ function _updateSize() {
         dom.clearProp(pixelName, true, true);
         // silently clear cached pixel size from this dom and the children of this.dom
     }
-    var parentLink = this.resParent(true);
-    if (!parentLink) {
-        return;
-    }
+
     var parentSnap;
 
     if (this.get('block')) {
-        if (unit == '%') {
-            parentSnap = dom.domParent();
-            if (parentSnap){
-                var pixels = parentSnap.pixels(sizeName);
-                if (pixels !== null) {
-                    value = pixels * value / 100;
-                    unit = 'px';
-                }
-            } else {
-                var window = this.space.window;
-                if (window){
-                    switch(sizeName){
-                        case 'width':
-                            value *= window.innerWidth /100;
-                            unit = 'px';
-                            break;
-
-                        case 'height':
-                            value *= window.innerHeight /100;
-                            unit = 'px';
-                            break;
+        switch (unit) {
+            case '%':
+                parentSnap = dom.domParent();
+                if (parentSnap) {
+                    var pixels = parentSnap.pixels(sizeName);
+                    if (pixels !== null) {
+                        value = pixels * value / 100;
+                        unit = 'px';
                     }
+                } else {
+                    var window = this.space.window;
+                    if (window) {
+                        switch (sizeName) {
+                            case 'width':
+                                value *= window.innerWidth / 100;
+                                unit = 'px';
+                                break;
+
+                            case 'height':
+                                value *= window.innerHeight / 100;
+                                unit = 'px';
+                                break;
+                        }
+                    }
+
                 }
-            }
-            out =( value + unit);
-        } else if (unit == 'px'){
-            out = value + 'px';
+                out = value + unit;
+                break;
+
+            case 'px':
+                out = value + 'px';
+                break;
+
+            default:
+
         }
         dom.style(sizeName, out, true);
     }

@@ -230,7 +230,8 @@ describe('SNAPS', function() {
                     });
 
                     it('should have the expected children', function() {
-                        snap.getLinks('node').length.should.eql(2);
+                        var links = snap.getLinks('node');
+                        links.length.should.eql(2);
                         var children = snap.nodeChildren();
                         children.length.should.eql(2);
                         children[0].id.should.eql(snap2.id);

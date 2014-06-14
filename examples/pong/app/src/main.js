@@ -24,7 +24,7 @@ define(function (require, exports, module) {
 
     var back = space.bd()
         .attr('class', 'back abs')
-        .addElement();
+        .elementToDom();
     back.size('width', 100, '%').size('height', 100, '%');
 
     /**
@@ -33,10 +33,10 @@ define(function (require, exports, module) {
     xPanel = space.bd()
         .attr('class', 'abs panel')
         .style('right', 150)
-        .addElement();
+        .elementToDom();
     yPanel = space.bd()
         .attr('class', 'abs panel')
-        .addElement();
+        .elementToDom();
 
     /**
      * Creating a series of blocks as targets
@@ -51,7 +51,7 @@ define(function (require, exports, module) {
             left: WALLHEIGHT,
             top: WALLHEIGHT
         })
-        .addElement();
+        .elementToDom();
     innerCourt.size('width', window.innerWidth - (2 * WALLHEIGHT), 'px').size('height', 100, '%');
 
     var blocks = _.flatten(_.map(_.range(0, 100, BLOCKWIDTHPERCENT), function (xPercent) {
@@ -60,7 +60,7 @@ define(function (require, exports, module) {
                 .attr('class', 'abs block')
                 .style('left', xPercent + '%')
                 .style('top', WALLHEIGHT + BLOCKHEIGHTOFFSET * row + 'px')
-                .addElement(innerCourt);
+                .elementToDom(innerCourt);
 
             block.size('width', BLOCKWIDTHPERCENT, '%').size('height', BLOCKHEIGHT, 'px');
             return block;
@@ -74,19 +74,19 @@ define(function (require, exports, module) {
     var rightWall = space.bd()
         .style('right', 0)
         .attr('class', 'abs wall')
-        .addElement();
+        .elementToDom();
 
     rightWall.size('height', 100, '%').size('width', WALLHEIGHT, 'px');
 
     var leftWall = space.bd()
         .style('left', 0)
         .attr('class', 'abs wall')
-        .addElement();
+        .elementToDom();
     leftWall.size('height', 100, '%').size('width', WALLHEIGHT, 'px');
 
     var topWall = space.bd()
         .attr('class', 'abs wall wall-top')
-        .addElement();
+        .elementToDom();
     topWall.size('height', WALLHEIGHT, 'px').size('width', 100, '%');
 
     /**
@@ -95,7 +95,7 @@ define(function (require, exports, module) {
 
     function _ball(i) {
         var ball = space.bd()
-            .addElement()
+            .elementToDom()
             .attr('class', 'abs ball')
             .style('opacity', 1 / (1 + i));
         return ball;
@@ -137,7 +137,7 @@ define(function (require, exports, module) {
 
     var paddle = space.bd()
         .attr('class', 'abs paddle')
-        .addElement()
+        .elementToDom()
         .style('bottom', PADDLEBOTTOM);
     paddle.size('width', PADDLEWIDTH, 'px').size('height', PADDLEHEIGHT, 'px');
 
@@ -147,7 +147,7 @@ define(function (require, exports, module) {
 
     var centerPanel = space.bd()
         .style({left: 0, top: '50%'})
-        .addElement()
+        .elementToDom()
         .style({display: 'none', opacity: 0})
         .attr('class', 'abs');
     centerPanel
@@ -158,7 +158,7 @@ define(function (require, exports, module) {
         .attr('class', 'abs go-panel')
         .style({left: ((100 - GOPANELWIDTH ) / 2) + '%', top: -GOPANELHEIGHT - window.innerHeight / 2})
         .innerHTML('GAME OVER')
-        .addElement();
+        .elementToDom();
     goPanel.size('width', GOPANELWIDTH, '%').size('height', GOPANELHEIGHT, 'px');
     centerPanel.link(goPanel);
 
@@ -166,7 +166,7 @@ define(function (require, exports, module) {
         .attr('class', 'abs score-panel')
         .style({left: ((100 - GOPANELWIDTH ) / 2) + '%', top: GOPANELHEIGHT / 2, opacity: 0})
         .innerHTML('score: 0')
-        .addElement(centerPanel.e());
+        .elementToDom(centerPanel.e());
     scorePanel.size('width', GOPANELWIDTH, '%').size('height', GOPANELHEIGHT, 'px');
     centerPanel.link(scorePanel);
 
@@ -174,7 +174,7 @@ define(function (require, exports, module) {
      * creating a transparent overlay to detect mouse position to move panel
      */
 
-    var front = space.bd().addElement().attr('class', 'abs');
+    var front = space.bd().elementToDom().attr('class', 'abs');
     front.size('width', 100, '%').size('height', 100, '%');
 
     front.e().addEventListener('mousemove', function (e) {

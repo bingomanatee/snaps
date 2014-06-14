@@ -76,7 +76,7 @@ Good if you are using multiple spaces to validate membership of a given snap in 
 #### Space.bd(props : Object, ele: DomElement (optional), parent: DomElement | BrowserDom (optional) ) : BrowserDom
 
 returns an new BrowserDom object. The props can be element or attribute values.
-Note unless props.addElement == true, the returned BrowserDom's element is not automatically
+Note unless props.elementToDom == true, the returned BrowserDom's element is not automatically
 inserted into the document.
 
 #### Space.update() : void

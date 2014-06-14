@@ -35,8 +35,8 @@ module.exports = function (grunt) {
                 amdModuleId: 'SNAPS', // optional, if missing the AMD module will be anonymous
                 globalAlias: 'SNAPS', // optional, changes the name of the global variable
                 deps: { // optional
-                    'default': ['_', 'signals'],
-                    cjs: ['lodash', 'signals']
+                    'default': ['_', 'signals', 'box2d'],
+                    cjs: ['lodash', 'signals', 'box2d']
                 }
             },
             alt: {
@@ -48,8 +48,8 @@ module.exports = function (grunt) {
                 amdModuleId: 'SNAPS', // optional, if missing the AMD module will be anonymous
                 globalAlias: 'SNAPS', // optional, changes the name of the global variable
                 deps: { // optional
-                    'default': ['_', 'signals'],
-                    cjs: ['lodash', 'signals']
+                    'default': ['_', 'signals', 'box2d'],
+                    cjs: ['lodash', 'signals', 'box2d']
                 }
             }
         },

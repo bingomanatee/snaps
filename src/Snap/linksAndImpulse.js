@@ -36,10 +36,10 @@ Snap.prototype.addLink = function (link) {
 };
 Snap.prototype.getLinksTo = function (linkType, filter, meta) {
     var links = this.getLinks(linkType, filter, meta);
-    var out= [];
-    for(var l = 0; l < links.length; ++l){
-        if (links[l].snaps[1].id == this.id){
-            out.push(links[0]);
+    var out = [];
+    for (var l = 0; l < links.length; ++l) {
+        if (links[l].snaps[1].id == this.id) {
+            out.push(links[l]);
         }
     }
     return out;
@@ -47,10 +47,10 @@ Snap.prototype.getLinksTo = function (linkType, filter, meta) {
 
 Snap.prototype.getLinksFrom = function (linkType, filter, meta) {
     var links = this.getLinks(linkType, filter, meta);
-    var out= [];
-    for(var l = 0; l < links.length; ++l){
-        if (links[l].snaps[0].id == this.id){
-            out.push(links[0]);
+    var out = [];
+    for (var l = 0; l < links.length; ++l) {
+        if (links[l].snaps[0].id == this.id) {
+            out.push(links[l]);
         }
     }
     return out;
@@ -70,13 +70,18 @@ Snap.prototype.getLinksFrom = function (linkType, filter, meta) {
  * @param meta {variant} sets a required value for a meta property of a link;
  */
 Snap.prototype.getLinks = function (linkType, filter, meta) {
+    if (this.simple) { // simple elements have no links
+        return [];
+    }
     var out = [];
     var link;
-    if (!this.simple) { // simple elements have no links
-        var l;
-        if (filter) {
-            if (_.isFunction(filter)) {
-                for (l = 0; l < this.links.length; ++l) {
+    var l;
+    var ll = this.links.length;
+
+    if (filter) {
+        switch (typeof(filter)) {
+            case 'function':
+                for (l = 0; l < ll; ++l) {
                     link = this.links[l];
                     if (meta && (link.meta != meta)) {
                         continue;
@@ -85,13 +90,13 @@ Snap.prototype.getLinks = function (linkType, filter, meta) {
                         out.push(link);
                     }
                 }
-            } else if (_.isObject(filter)) {
-                for (l = 0; l < this.links.length; ++l) {
+                break;
+
+            case 'object':
+                for (l = 0; l < ll; ++l) {
                     link = this.links[l];
-                    if (meta && (link.meta != meta)) {
-                        continue;
-                    }
-                    if (link.active && (link.linkType == linkType)) {
+
+                    if (link.active && ((typeof meta == 'undefined' )|| (link.meta == meta)) && (link.linkType == linkType)) {
                         for (var p in filter) {
                             if (link && link[p] != filter[p]) {
                                 link = null;
@@ -102,129 +107,16 @@ Snap.prototype.getLinks = function (linkType, filter, meta) {
                         }
                     }
                 }
-            } else {
-                throw new Error('cannot filter');
-            }
-        } else {
-            for (l = 0; l < this.links.length; ++l) {
-                link = this.links[l];
-                if (meta && (link.meta != meta)) {
-                    continue;
-                }
-                if (link.active && (link.linkType == linkType)) {
-                    out.push(link);
-                }
+                break;
+        }
+    } else { // no filter;
+        for (l = 0; l < ll; ++l) {
+            link = this.links[l];
+            if (link.active && (link.linkType == linkType) && ((typeof meta == 'undefined') || (link.meta == meta))) {
+                out.push(link);
             }
         }
     }
-    return out;
-};
-
-Snap.prototype.nodeChildren = function (ids) {
-    var children = [];
-    for (var i = 0; i < this.links.length; ++i) {
-        var link = this.links[i];
-        if (link.active && link.linkType == 'node' && link.meta == 'nodeChild' && link.snaps[0].id == this.id) {
-            children.push(ids ? link.snaps[1].id : link.snaps[1]);
-        }
-    }
-    return children;
-};
-
-Snap.prototype.nodeParentNodes = function () {
-    var myId = this.id;
-    return this.getLinks('node', function (n) {
-        return n.snaps[1].id == myId;
-    });
-};
-
-Snap.prototype.nodeParents = function (ids) {
-    var nodes = this.nodeParentNodes();
-
-    return _.reduce(nodes, function (o, link) {
-        if (link.snaps[1].active) {
-            o.push(ids ? link.snaps[0].id : link.snaps[0]);
-        }
-        return o;
-    }, []);
-};
-
-Snap.prototype.nodeChildNodes = function () {
-    var myId = this.id;
-    return this.getLinks('node', function (link) {
-        return link.meta == 'nodeChild' && link.snaps[0].id == myId;
-    });
-};
-
-Snap.prototype.hasNodeChildren = function () {
-    for (var i = 0; i < this.links.length; ++i) {
-        var link = this.links[i];
-        if (link.linkType == 'node' && link.meta == 'nodeChild' && link.snaps[0].id == this.id) {
-            return true;
-        }
-    }
-
-    return false;
-};
-
-Snap.prototype.nodeSpawn = function () {
-    var children = this.nodeChildren();
-
-    var leafs = [];
-    var pp = [];
-    var parents = [];
-
-    while (children.length || parents.length) {
-        for (var i = 0; i < children.length; ++i) {
-            var child = children[i];
-            if (child.hasNodeChildren()) {
-                parents.push(child);
-            } else {
-                leafs.push(child);
-            }
-        }
-        children = [];
-
-        for (var p = 0; p < parents.length; ++p) {
-            var parent = parents[p];
-            children = children.concat(parent.nodeChildren());
-            pp.push(parent);
-        }
-        parents = [];
-    }
-
-    return pp.concat(leafs);
-
-};
-
-Snap.prototype.nodeFamily = function () {
-
-    var id = this.id;
-    var out = {
-        id: id
-    };
-
-    var childLinks = this.getLinks('node', function (link) {
-        return link.snaps[0].id == id;
-    });
-
-    for (var l = 0; l < childLinks.length; ++l) {
-        var link = childLinks[l];
-        var nodeChild = link.get(1);
-        var grandChildren = nodeChild.nodeFamily();
-        if (link.meta && _.isString(link.meta)) {
-            if (!out[link.meta]) {
-                out[link.meta] = [];
-            }
-            out[link.meta].push(grandChildren);
-        } else {
-            if (!out.children) {
-                out.children = [];
-            }
-            out.children.push(grandChildren);
-        }
-    }
-
     return out;
 };
 
@@ -287,10 +179,10 @@ Snap.prototype.resParent = function (link) {
  * @param message
  * @param data
  */
-Snap.prototype.nodeBroadcast = function(message, data){
+Snap.prototype.nodeBroadcast = function (message, data) {
     var snaps = [this];
 
-    while(snaps.length){
+    while (snaps.length) {
         var snap = snaps.shift(snaps);
         snap.terminal.dispatch(message, data);
         snaps.unshift.apply(snaps, this.nodeChildren());

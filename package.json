@@ -23,7 +23,8 @@
   "dependencies": {
     "lodash": "~2.4.1",
     "jsdom": "~0.10.5",
-    "signals": "~1.0.0"
+    "signals": "~1.0.0",
+    "box2d": "~1.0.0"
   },
   "devDependencies": {
     "mocha": "~1.19.0",

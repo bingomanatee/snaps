@@ -44,7 +44,7 @@ Space.prototype.bdDispatch = function () {
  * 1) linking both DomElements AND their elements is created by passing a parent to the DomElement
  *    at the time of creation.
  *
- * 2) linking JUST elements is created by passing a parent to the addElement method of the child.
+ * 2) linking JUST elements is created by passing a parent to the elementToDom method of the child.
  *
  * --------------- DomElement's element
  *
@@ -53,7 +53,7 @@ Space.prototype.bdDispatch = function () {
  * element until an action that requires an element to be present in which case, one is made.
  *
  * 1) any time you set an attribute or a style value, an element will be made.
- * 2) if you add a parent to the DomElement, either during construction or via addElement, an element
+ * 2) if you add a parent to the DomElement, either during construction or via elementToDom, an element
  *    will be made in the update cycle.
  * 3) if you manually call e(), innerHTML, s(), or a() (which are examples of 1) and 2) above)
  *    an element will be made.
@@ -87,14 +87,14 @@ Space.prototype.bdDispatch = function () {
  * --------------- Attaching DomElements to the Document
  *
  * just creating a DomElement instance does NOT place it in the browser's DOM tree. You must call
- * addElement to accomplish this. Until this is done, the DomElement will not be visible or part of the
+ * elementToDom to accomplish this. Until this is done, the DomElement will not be visible or part of the
  * DOM tree.
  *
- * The addElement method does one of two things:
+ * The elementToDom method does one of two things:
  *
  * 1) if it has no parameter it attaches its element to the space's document (which should be set
  * to the pages' document.)
- * 2) if a parent is passed to addElement there are one of two possibilities:
+ * 2) if a parent is passed to elementToDom there are one of two possibilities:
  *    a) the parent is a browser Element in which case the caller's element is appended to that parent.
  *    b) the parent is a DomElement in which case the caller's element is appended to
  *       the parent's element. However the DomElements are not themselves linked.
@@ -103,7 +103,7 @@ Space.prototype.bdDispatch = function () {
  *
  * There is two ways to put content inside elements:
  *
- * 1) actually parent DomElements to each other using addElement
+ * 1) actually parent DomElements to each other using elementToDom
  * 2) call innerHTML to put markup in hte DomElement's Element.
  *
  * You have to pick one - there is no real way to preserve nested DomElements AND allow you to
@@ -151,10 +151,10 @@ var DomElement = function (space, id, ele, parent) {
         var addElement = this.get('addElement');
         if (addElement) {
             if (addElement === true) {
-                this.addElement();
+                this.elementToDom();
             } else {
                 var parent = addElement.$TYPE == DomElement.prototype.$TYPE ? addElement.e() : addElement;
-                this.addElement(parent);
+                this.elementToDom(parent);
             }
         }
     }, this);
@@ -212,14 +212,14 @@ DomElement.prototype.destroy = function () {
  * then this boxDomElement is added to the body.
  *
  * Note - the relationship between DomElements and page elements probably should,
- * but does not have to, be kept parallel; however passing a parent to addElement
+ * but does not have to, be kept parallel; however passing a parent to elementToDom
  * will not make this node a child of that DomElement -- it will just enforce parent child
  * relationships between their elements.
  *
  * @param parent
  * @returns {DomElement}
  */
-DomElement.prototype.addElement = function (parent) {
+DomElement.prototype.elementToDom = function (parent) {
     if (!parent) {
         var parents = this.domParents();
         if (parents.length) {
@@ -265,68 +265,6 @@ DomElement.prototype.removeElement = function () {
 DomElement.prototype.setDebug = function (d) {
     this.debug = this.styleSnap.debug = this.attrSnap.debug = d;
     return this;
-};
-
-DomElement.prototype.domChildrenNodes = function () {
-    var myId = this.id;
-    return this.getLinks('node', function (n) {
-        return n.meta == 'dom' && n.snaps[0].id == myId;
-    });
-};
-
-DomElement.prototype.hasDomChildren = function () {
-    for (var l = 0; l < this.links.length; ++l) {
-        var link = this.links[l];
-        if (link.linkType == 'node' && link.meta == 'dom' && link.snaps[0].id == this.id) {
-            return true;
-        }
-    }
-    return false;
-};
-
-DomElement.prototype.domChildren = function () {
-    var children = [];
-    for (var l = 0; l < this.links.length; ++l) {
-        var link = this.links[l];
-        if (link.linkType == 'node' && link.meta == 'dom' && link.snaps[0].id == this.id) {
-            children.push(link.snaps[1]);
-        }
-    }
-    return children;
-};
-
-DomElement.prototype.domParentNodes = function () {
-    var myId = this.id;
-    return this.getLinks('node', function (n) {
-        return n.meta == 'dom' && n.snaps[1].id == myId;
-    });
-};
-
-DomElement.prototype.domParent = function () {
-    return this.domParents()[0];
-}
-DomElement.prototype.domParents = function () {
-    var myId = this.id;
-
-    var links = this.getLinks('node', function (n) {
-        return n.meta == 'dom' && n.snaps[1].id == myId;
-    });
-    var out = [];
-    for (var p = 0; p < links.length; ++p) {
-        out.push(links[p].snaps[0]);
-    }
-
-    return out;
-};
-
-DomElement.prototype.hasDomParent = function () {
-    for (var l = 0; l < this.links.length; ++l) {
-        var link = this.links[l];
-        if (link.linkType == 'node' && link.meta == 'dom' && link.snaps[1].id == this.id) {
-            return true;
-        }
-    }
-    return false;
 };
 
 /**

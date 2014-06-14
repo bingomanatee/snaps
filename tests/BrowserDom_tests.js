@@ -279,26 +279,28 @@ describe('SNAPS', function() {
             describe('blocking setting of HTML when domChldren are present', function() {
                 var space, bd, document, window, div, bd2;
 
-                dom.env(
-                    '<html><body></body></html>',
-                    [],
-                    function(errors, w) {
-                        window = w;
-                        document = window.document;
-                        div = document.createElement('div');
-                        var div2 = document.createElement('span');
-                        document.body.appendChild(div);
+                before(function(done){
+                    dom.env(
+                        '<html><body></body></html>',
+                        [],
+                        function(errors, window) {
+                            document = window.document;
+                            div = document.createElement('div');
+                            var div2 = document.createElement('span');
+                            document.body.appendChild(div);
 
-                        space = SNAPS.space();
-                        bd = space.bd(div, document.body)
-                            .a('class', 'foo')
-                            .s('color', 'rgb(255,0,0)');
-                        bd2 = space.bd(div2, bd)
-                            .html('bar');
-                        bd.link(bd2);
-                        space.update();
-                        done();
-                    });
+                            space = SNAPS.space();
+                            bd = space.bd(div, document.body)
+                                .a('class', 'foo')
+                                .s('color', 'rgb(255,0,0)');
+                            bd2 = space.bd(div2, bd)
+                                .html('bar');
+                            bd.link(bd2);
+                            space.setWindow(window);
+                            space.update();
+                            done();
+                        });
+                });
 
                 it('should embed one bd in another', function() {
                     bd2.innerHTML('a new body'); // we CAN add content to the child node because it itself has no child domNodes.

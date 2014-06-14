@@ -7,13 +7,14 @@ Space.prototype.size = function (sizeName, input, unit) {
     return size;
 };
 
-DomElement.prototype.sizeResource = function(sizeName) {
-    var id = this.id;
-    return this.getLinks('resource', function(link) {
-        return link.meta == sizeName && link.snaps[0].id == id;
-    })[0];
+DomElement.prototype.sizeResource = function (sizeName) {
+    var links = this.getLinksFrom('size', null, sizeName);
+    if (links.length == 1){
+        return links[0].snaps[0];
+    } else {
+        return links.length;
+    }
 };
-
 
 DomElement.prototype.size = function (sizeName, value, unit) {
     if (arguments.length < 2) {
@@ -105,7 +106,7 @@ function Size(space, id, sizeName, input, unit) {
 
 Size.prototype = Object.create(Snap.prototype);
 
-Size.prototype.pixels = function() {
+Size.prototype.pixels = function () {
     var value = this.get('value');
     var unit = this.get('unit');
     var sizeName = this.get('sizeName');
@@ -116,7 +117,7 @@ Size.prototype.pixels = function() {
         var pixelName = sizeName + 'Pixels';
 
         var parentSnap = this.resParent();
-        if (parentSnap.has(pixelName)){
+        if (parentSnap.has(pixelName)) {
             return parentSnap.get(pixelName);
         }
 
@@ -133,13 +134,13 @@ Size.prototype.pixels = function() {
     }
     return null;
 };
-        //@TODO: check document?
+//@TODO: check document?
 
 Size.prototype.sizeDomParent = function () {
     return this.getLinksTo('resource', null, this.get('sizeName'));
 };
 
-DomElement.prototype.pixels = function(sizeName) {
+DomElement.prototype.pixels = function (sizeName) {
     var pixelName = sizeName + 'Pixels';
     if (!this.has(pixelName)) {
         this.set(pixelName, _domPixels.call(this, sizeName));
@@ -147,7 +148,7 @@ DomElement.prototype.pixels = function(sizeName) {
     return this.get(pixelName);
 };
 
-_domPixels = function(sizeName) {
+_domPixels = function (sizeName) {
     var size = this.size(sizeName);
     var percent = null;
     if (!size) {
@@ -282,7 +283,9 @@ SNAPS.Size = Size;
  */
 function _updateSize() {
     var dom = this.resParent();
-    if (!dom) return;
+    if (!dom) {
+        return;
+    }
 
     var value = this.get('value');
     var unit = this.get('unit');
@@ -293,40 +296,45 @@ function _updateSize() {
         dom.clearProp(pixelName, true, true);
         // silently clear cached pixel size from this dom and the children of this.dom
     }
-    var parentLink = this.resParent(true);
-    if (!parentLink) {
-        return;
-    }
+
     var parentSnap;
 
     if (this.get('block')) {
-        if (unit == '%') {
-            parentSnap = dom.domParent();
-            if (parentSnap){
-                var pixels = parentSnap.pixels(sizeName);
-                if (pixels !== null) {
-                    value = pixels * value / 100;
-                    unit = 'px';
-                }
-            } else {
-                var window = this.space.window;
-                if (window){
-                    switch(sizeName){
-                        case 'width':
-                            value *= window.innerWidth /100;
-                            unit = 'px';
-                            break;
-
-                        case 'height':
-                            value *= window.innerHeight /100;
-                            unit = 'px';
-                            break;
+        switch (unit) {
+            case '%':
+                parentSnap = dom.domParent();
+                if (parentSnap) {
+                    var pixels = parentSnap.pixels(sizeName);
+                    if (pixels !== null) {
+                        value = pixels * value / 100;
+                        unit = 'px';
                     }
+                } else {
+                    var window = this.space.window;
+                    if (window) {
+                        switch (sizeName) {
+                            case 'width':
+                                value *= window.innerWidth / 100;
+                                unit = 'px';
+                                break;
+
+                            case 'height':
+                                value *= window.innerHeight / 100;
+                                unit = 'px';
+                                break;
+                        }
+                    }
+
                 }
-            }
-            out =( value + unit);
-        } else if (unit == 'px'){
-            out = value + 'px';
+                out = value + unit;
+                break;
+
+            case 'px':
+                out = value + 'px';
+                break;
+
+            default:
+
         }
         dom.style(sizeName, out, true);
     }

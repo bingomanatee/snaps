@@ -18,7 +18,7 @@ define(function (require, exports, module) {
         height: 150,
         'background-color': 'red'
     });
-    box.setContent( 'Bob the Box').addElement();
+    box.setContent( 'Bob the Box').elementToDom();
 
 
 
@@ -27,18 +27,18 @@ define(function (require, exports, module) {
         top: 300,
         width: 100,
         height: 150,
-        addElement: true,
+        elementToDom: true,
         'background-color': 'green'
-    }).setContent('Danny Dommo').addElement();
+    }).setContent('Danny Dommo').elementToDom();
 
     var box3 =  space.bd().setStyle({
         position: 'absolute',
         top: 150,
         width: 100,
         height: 150,
-        addElement: true,
+        elementToDom: true,
         'background-color': 'blue'
-    }).setContent("Three Musketeers").addElement();
+    }).setContent("Three Musketeers").elementToDom();
 
     setTimeout(function(){
         box.styleSnap.blend('width', 400, 5000, SNAPS.ease.elasticIn);
