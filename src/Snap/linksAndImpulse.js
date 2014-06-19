@@ -16,24 +16,29 @@ Snap.prototype.removeLink = function (link) {
     if (this.simple || (!this.links.length)) {
         return;
     }
-    var linkId = isNaN(link) ? link.id : link;
 
-    this.links = _.reject(this.links, function (link) {
-        return link.inactive || (link.id == linkId);
-    });
+    var newLinks = [];
+
+    for (var l = 0; l < this.links.length; ++l){
+        var oldLink = this.links[l];
+        if (link.id != oldLink.id){
+            newLinks.push(oldLink);
+        }
+    }
+    this.links = newLinks;
+
     return this
 };
 
 Snap.prototype.addLink = function (link) {
     if (this.simple) {
-        return;
+        return; // this is not a throwable error -- simple Snaps can be linked to -- just don't keep a registry of links
     }
-    if (!_.find(this.links, function (l) {
-        return l.id == link.id
-    })) {
-        this.links.push(link);
-    }
+
+    this.links.push(link);
+    this.dispatch('linked', link);
 };
+
 Snap.prototype.getLinksTo = function (linkType, filter, meta) {
     var links = this.getLinks(linkType, filter, meta);
     var out = [];

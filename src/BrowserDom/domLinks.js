@@ -13,14 +13,15 @@ DomElement.prototype.hasDomChildren = function () {
 };
 
 DomElement.prototype.domChildren = function () {
-    var children = [];
-    for (var l = 0; l < this.links.length; ++l) {
-        var link = this.links[l];
-        if (link.linkType == 'node' && link.meta == 'dom' && link.snaps[0].id == this.id) {
-            children.push(link.snaps[1]);
-        }
-    }
-    return children;
+    /*var children = [];
+     for (var l = 0; l < this.links.length; ++l) {
+     var link = this.links[l];
+     if (link.linkType == 'node' && link.meta == 'dom' && link.snaps[0].id == this.id) {
+     children.push(link.snaps[1]);
+     }
+     }
+     return children;*/
+    return this.getLinksFrom('node', 'dom');
 };
 
 DomElement.prototype.domParentLinks = function () {

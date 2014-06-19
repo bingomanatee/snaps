@@ -19,8 +19,8 @@ module.exports = function (grunt) {
                         'src/Snap.js',
                         'src/Snap/*.js',
                         'src/BrowserDom.js',
-                        'src/BrowserDom/*.js',
                         'src/Size.js',
+                        'src/BrowserDom/*.js',
                         'src/DomCells.js'
                     ]
                 }

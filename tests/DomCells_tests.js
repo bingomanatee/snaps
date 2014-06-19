@@ -9,7 +9,7 @@ function a(t) {
 }
 
 describe('SNAPS', function () {
-    describe('DomCells', function () {
+    describe.skip('DomCells', function () {
         describe('basic pixel cells -- vertical', function () {
             var space, bdCells;
 

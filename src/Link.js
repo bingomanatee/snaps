@@ -38,12 +38,9 @@ SNAPS.Link = function(space, snaps, linkType, meta) {
 };
 
 SNAPS.Link.prototype.link = function() {
-    var link = this;
-    var space = this.space;
-
-    _.each(this.snaps, function(snap) {
-        snap.addLink(link)
-    });
+    for (var l = 0; l < this.snaps.length; ++l){
+        this.snaps[l].addLink(this)
+    }
 };
 
 SNAPS.Link.prototype.get = function(i, id) {
