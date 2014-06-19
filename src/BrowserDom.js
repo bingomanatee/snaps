@@ -1,11 +1,18 @@
 Space.prototype.bd = function (ele, parent) {
-    var dom = SNAPS.boxDomElement(this, this.snaps.length, ele, parent);
+    var dom = SNAPS.domElement(this, this.snaps.length, ele, parent);
     this.snaps.push(dom);
     return dom;
 };
 
-SNAPS.boxDomElement = function (space, i, e, p) {
-
+/**
+ * note -- this is a factory, not a constructor
+ * @param space {Space}
+ * @param i {int} the id in the snaps registry
+ * @param e {element} (optional) the element class to be used
+ * @param p {DomElement} (optional) the parent to this domElement
+ * @returns {DomElement}
+ */
+SNAPS.domElement = function (space, i, e, p) {
     return new DomElement(space, i, e, p);
 };
 
@@ -206,10 +213,10 @@ DomElement.prototype.destroy = function () {
 };
 
 /**
- * Adds a boxDomElement's element to the page.
+ * Adds a domElement's element to the page.
  *
  * If EITHER a DomElement node is passed in (either a native dom element or a SNAPS DomElement)
- * then this boxDomElement is added to the body.
+ * then this domElement is added to the body.
  *
  * Note - the relationship between DomElements and page elements probably should,
  * but does not have to, be kept parallel; however passing a parent to elementToDom
@@ -288,6 +295,10 @@ DomElement.prototype.link = function (dom) {
         link = Snap.prototype.link.apply(this, args);
     }
     return link;
+};
+
+DomElement.prototype.bd = function () {
+    return this.space.bd(null, this);
 };
 
 /**

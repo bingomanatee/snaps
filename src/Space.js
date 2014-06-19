@@ -12,14 +12,14 @@ var Space = function () {
 
 Space.prototype.$TYPE = 'SPACE';
 
-Space.prototype.count = function () {
+Space.prototype.count = Space.prototype.nextId = function () {
     return this.snaps.length;
 };
 
 Space.prototype.setWindow = function (window) {
     this.window = window;
     this.document = window.document;
-    window.addEventListener('resize', function(){
+    window.addEventListener('resize', function () {
         console.log('resizing');
         this.terminal.dispatch('resize', {
             width: window.innerWidth,
@@ -28,7 +28,7 @@ Space.prototype.setWindow = function (window) {
     }.bind(this))
 };
 
-Space.prototype.getDocument = function(){
+Space.prototype.getDocument = function () {
     if (this.document) {
         return this.document;
     } else if (typeof document !== 'undefined') {
@@ -162,7 +162,7 @@ Space.prototype.endEdition = function (currentEd) {
     }
 };
 
-Space.prototype.isEditing = function(){
+Space.prototype.isEditing = function () {
     return this.editionCompleted < this.editionStarted;
 };
 

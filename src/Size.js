@@ -9,7 +9,7 @@ Space.prototype.size = function (sizeName, input, unit) {
 
 DomElement.prototype.sizeResource = function (sizeName) {
     var links = this.getLinksFrom('size', null, sizeName);
-    if (links.length == 1){
+    if (links.length == 1) {
         return links[0].snaps[0];
     } else {
         return links.length;
@@ -50,6 +50,7 @@ DomElement.prototype.size = function (sizeName, value, unit) {
             this.terminal.listen('resize', orf);
             //@TODO: cleanup
         }
+        size.update();
         return this;
     }
 };
@@ -140,15 +141,7 @@ Size.prototype.sizeDomParent = function () {
     return this.getLinksTo('resource', null, this.get('sizeName'));
 };
 
-DomElement.prototype.pixels = function (sizeName) {
-    var pixelName = sizeName + 'Pixels';
-    if (!this.has(pixelName)) {
-        this.set(pixelName, _domPixels.call(this, sizeName));
-    }
-    return this.get(pixelName);
-};
-
-_domPixels = function (sizeName) {
+function _domPixels(sizeName) {
     var size = this.size(sizeName);
     var percent = null;
     if (!size) {
@@ -191,7 +184,19 @@ _domPixels = function (sizeName) {
     }
 
     return null;
+}
+
+DomElement.prototype.pixels = _domPixels;
+/*
+
+function (sizeName) {
+    var pixelName = sizeName + 'Pixels';
+    if (!this.has(pixelName)) {
+        this.set(pixelName, _domPixels.call(this, sizeName));
+    }
+    return this.get(pixelName);
 };
+*/
 
 Size.domSize = function (dom, paramName) {
     for (var l = 0; l < dom.links.length; ++l) {

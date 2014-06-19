@@ -99,7 +99,7 @@ Snap.prototype.setAndUpdate = function(prop, value) {
  *
  * @param prop {string}
  * @param value {various}
- * @param combiner {function} optional == reduces old and new values to gether
+ * @param combiner {function} optional == reduces old and new values together
  * @returns {self}
  */
 Snap.prototype.merge = function(prop, value, combiner) {

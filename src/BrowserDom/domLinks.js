@@ -1,4 +1,4 @@
-DomElement.prototype.domChildrenNodes = function () {
+DomElement.prototype.domChildrenLinks = function () {
     return this.getLinksFrom('node', null, 'dom');
 };
 
@@ -23,7 +23,7 @@ DomElement.prototype.domChildren = function () {
     return children;
 };
 
-DomElement.prototype.domParentNodes = function () {
+DomElement.prototype.domParentLinks = function () {
     return this.getLinksTo('node', null, 'dom');
 };
 
@@ -37,7 +37,11 @@ DomElement.prototype.domParent = function () {
 };
 
 DomElement.prototype.domParents = function () {
-    return this.getLinksTo('node', null, 'dom');
+    var parents = this.getLinksTo('node', null, 'dom');
+    for (var l = 0; l < parents.length; ++l){
+        parents[l] = parents[l].snaps[0];
+    }
+    return parents;
 };
 
 DomElement.prototype.hasDomParent = function () {

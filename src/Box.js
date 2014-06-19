@@ -12,7 +12,7 @@ DomElement.prototype.addBox = function (props) {
 };
 
 function _sizeToDom(width, height) {
-    var de = this.boxDomElement();
+    var de = this.domElement();
 
     if (width) {
         if (typeof width == 'number') {
@@ -116,7 +116,7 @@ DomElement.prototype.getBox = function () {
 };
 
 Box.prototype.parentBox = function(){
-    var element = this.boxDomElement();
+    var element = this.domElement();
     if (!element){
         throw "Box has no DomElement";
     }
@@ -169,7 +169,7 @@ DomElement.prototype.parentBox = function () {
  * @returns {*}
  */
 
-Box.prototype.boxDomElement = function () {
+Box.prototype.domElement = function () {
     var id = this.id;
     var domLinks = this.getLinks('resource', function (link) {
         return link.meta == 'box' && link.snaps[1].id == id;
