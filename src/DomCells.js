@@ -58,14 +58,12 @@ function DomCells(space, id, parent, orientation, size, unit) {
     if (!unit) {
         unit = '%';
     }
+    wu = hu = unit;
 
     if (_.isArray(size)) {
         w = size[0];
         h = size[1];
-        wu = hu = unit;
     } else {
-        //   this.size((size == 'vertical' ? 'height' : 'width'), size, unit || 'px');
-
         if (orientation == 'vertical') {
             w = size;
             wu = unit;
@@ -75,7 +73,6 @@ function DomCells(space, id, parent, orientation, size, unit) {
             w = 100;
             wu = '%';
             h = size;
-            hu = '%';
         }
     }
     this.size('width', w, wu);
