@@ -95,7 +95,7 @@ describe('SNAPS', function() {
 
             describe('basic insertion', function() {
                 var space, bd;
-                var document, window, div;
+                var window, div;
 
                 before(function(done) {
 
@@ -104,19 +104,19 @@ describe('SNAPS', function() {
                         [],
                         function(errors, w) {
                             window = w;
-                            document = window.document;
-                            div = document.createElement('div');
-                            document.body.appendChild(div);
+                            div = window.document.createElement('div');
+                            window.document.body.appendChild(div);
 
                             space = SNAPS.space();
-                            bd = space.bd(div, document.body);
+                            space.setWindow(window);
+                            bd = space.bd(window.document.body);
                             done();
                         }
                     );
                 });
 
                 it('should be in document', function() {
-                    document.body.outerHTML.should.eql("<body><div></div></body>");
+                    window.document.body.outerHTML.should.eql("<body><div></div></body>");
                 });
 
                 it('should render div', function() {
@@ -172,6 +172,7 @@ describe('SNAPS', function() {
                         div = document.createElement('div');
 
                         space = SNAPS.space();
+                        space.setWindow(window);
                         bd = space.bd(div, document.body);
                         bd.attr('name', 'foo');
                         bd.style('color', 'rgb(255,200,200)');
@@ -201,6 +202,7 @@ describe('SNAPS', function() {
                         div = document.createElement('div');
 
                         space = SNAPS.space();
+                        space.setWindow(window);
                         bd = space.bd(div, document.body);
                         bd.a('name', 'foo').s('color', 'rgb(255,0,0)');
                         space.update();
@@ -231,6 +233,7 @@ describe('SNAPS', function() {
                         document.body.appendChild(div);
 
                         space = SNAPS.space();
+                        space.setWindow(window);
                         bd = space.bd(div, document.body).a('name', 'foo').s('color', 'rgb(255,0,0)');
                         space.update();
                         done();
@@ -283,13 +286,15 @@ describe('SNAPS', function() {
                     dom.env(
                         '<html><body></body></html>',
                         [],
-                        function(errors, window) {
+                        function(errors, w) {
+                            window = w;
                             document = window.document;
                             div = document.createElement('div');
                             var div2 = document.createElement('span');
                             document.body.appendChild(div);
 
                             space = SNAPS.space();
+                            space.setWindow(window);
                             bd = space.bd(div, document.body)
                                 .a('class', 'foo')
                                 .s('color', 'rgb(255,0,0)');

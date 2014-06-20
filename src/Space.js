@@ -88,16 +88,16 @@ Space.prototype.snap = function (input) {
 
     if (arguments.length) {
         if (_.isObject(input)) {
-            snap = new Snap(this, this.snaps.length, input);
+            snap = new Snap(this, input);
             this.snaps.push(snap);
         } else if (input === true) {
-            snap = new Snap(this, this.snaps.length, {simple: true});
+            snap = new Snap(this, {simple: true});
             this.snaps.push(snap);
         } else {
             snap = this.snaps[input] || SNAPS.INVALID_SNAP_ID;
         }
     } else {
-        snap = new Snap(this, this.snaps.length);
+        snap = new Snap(this);
         this.snaps.push(snap);
     }
     return snap;

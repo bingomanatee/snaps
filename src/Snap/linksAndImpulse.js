@@ -1,12 +1,21 @@
+/**
+ * The arguments are by default a list of snaps. HOWEVER:
+ * IF the first argument is a string it is used as the linktype.
+ * If the last argument is a string it is used as the value for meta.
+ *
+ * @returns {SNAPS.Link}
+ */
+
 Snap.prototype.link = function () {
     var args = _.toArray(arguments);
-    var meta = null;
-    var linkType;
+    var meta = 'nodeChild';
+    var linkType = 'node';
+
     if (typeof(args[0]) == 'string') {
         linkType = args.shift();
-    } else {
-        linkType = 'node';
-        meta = 'nodeChild';
+    }
+    if (typeof args[args.length - 1] == 'string'){
+        meta = args.pop();
     }
     args.unshift(this);
     return new SNAPS.Link(this.space, args, linkType, meta);

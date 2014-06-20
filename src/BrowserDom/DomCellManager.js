@@ -5,15 +5,19 @@
  * @constructor
  */
 
-function DomCellManager(space, id, orientation) {
-    Snap.call(this, space, id);
+function DomCellManager(space, orientation) {
+    Snap.call(this, space);
     this.set('isVert', /^v/i.test(orientation));
-    this.listen('linked', _onDCMlinked.bind(this));
+    this.listen('linked', _onDCMLinked.bind(this));
 }
 
 function _onDCMLinked(link) {
     this.sizeChildren();
 }
+
+Space.prototype.domCellManager = function(orientation){
+    return new DomCellManager(this, this.nextId(), orientation);
+};
 
 DomCellManager.prototype.$TYPE = 'DOMCELLMGR';
 SNAPS.typeAliases.SNAP.push(DomCellManager.prototype.$TYPE);
@@ -21,7 +25,8 @@ SNAPS.typeAliases.SNAP.push(DomCellManager.prototype.$TYPE);
 DomCellManager.prototype = Object.create(Snap.prototype);
 
 function _DCMOrderedChildren(domCellManager) {
-
+    var c;
+    var unordered = [];
     var csName = domCellManager.get('isVert') ? 'vCellSize' : 'hSellSize';
 
     var parent = Snaps.assert.$TYPE(domCellManager.resParent(), DomElement.prototype.$TYPE);
@@ -29,14 +34,12 @@ function _DCMOrderedChildren(domCellManager) {
         return; // might not be linked yet
     }
     var children = parent.domChildren();
-    var unordered = [];
 
     var maxOrdered = 0;
-    for (var c = 0; c < children.length; ++c) {
+    for ( c = 0; c < children.length; ++c) {
         var child = children[c];
 
         if (child.has(csName)) {
-            ordered.push(child);
             maxOrdered = Math.max(child.get(csName), maxOrdered);
         } else {
             children[c] = null;
@@ -50,11 +53,13 @@ function _DCMOrderedChildren(domCellManager) {
             return child.get(csName);
         });
 
-        unordered = _.sortBy(unordered, 'id');
-        for (var uo = 0; uo < unordered.length; ++uo) {
-            unordered.set(csName, maxOrdered + uo + 1);
+        console.log('warning: DomCellManager has unordered children; enforcing order of ' + csName);
+        unordered = _.sortBy(unordered, 'id'); // as good a guess as any...
+
+        children = children.concat(unordered);
+        for (c = 0; c < children.length; ++c){
+            children[c].set(csName, c);
         }
-        return children.concat(unordered);
     } else {
         return _.sortBy(children, function (child) {
             return child.get(csName);

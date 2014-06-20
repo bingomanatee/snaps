@@ -315,5 +315,15 @@ SNAPS.assert = {
         } else if (check.verify.intNumber(item, 'non-object, non-int passed into toId')){
             return item;
         }
+    },
+
+    snap: function(item, message){
+        var res = SNAPS.isSnap(item);
+        if (!res){
+            return item;
+        } else {
+            throw new Error(message ? message : res);
+        }
+
     }
 };

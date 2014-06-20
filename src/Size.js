@@ -65,15 +65,14 @@ DomElement.prototype.size = function (sizeName, value, unit) {
  * the 'value' property is a numeric and can be blended.
  *
  * @param space {Space}
- * @param id {int}
  * @param sizeName {string}  {String} usu. 'width' or 'height'
  * @param input {variant} number or size string('200px', '100%')
  * @param unit {string} (optional) '%' or 'px'
  * @constructor
  */
 
-function Size(space, id, sizeName, input, unit) {
-    Snap.call(this, space, id);
+function Size(space, sizeName, input, unit) {
+    Snap.call(this, space);
 
     this.listen('updateProperties', _updateSize, this);
     this.listen('updateDocumentSize', _updateSize, this);

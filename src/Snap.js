@@ -16,9 +16,9 @@
  * @constructor
  */
 
-function Snap(space, id, props) {
+function Snap(space, props) {
     this.space = SNAPS.assert.$TYPE(space, 'SPACE');
-    this.id = SNAPS.assert.int(id, 'id must be a number');
+    this.id = space.nextId();
     this.invalid = false;
     this._simple = !!(props && props.simple);
     if (this.simple) delete props.simple;

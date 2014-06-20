@@ -13,7 +13,7 @@ var linkId = 0;
  * -- 'resource': a relationship that is application-specific - the meta property of the link can provide more detail.
  *
  * @param space {SNAPS.Space}
- * @param snaps {[{SNAPS.Snap | id }]}
+ * @param snaps [{SNAPS.Snap | id }]
  * @param linkType {String} see above
  * @param meta {variant} any kind of annotation -- optional.
  * @constructor
@@ -27,24 +27,36 @@ SNAPS.Link = function(space, snaps, linkType, meta) {
 
     if (check.array(snaps)) {
         this.snaps = snaps;
+    } else if (snaps) {
+        this.snaps = [snaps];
+
     } else {
         this.snaps = [];
-
     }
-    this.meta = meta;
+    this.meta = meta || '';
 
     this.validate();
     this.link();
 };
 
+/**
+ * populate this link amongst all its members.
+ * Members are responsible for not allowing redundancy in thier link collections.
+ *
+ */
 SNAPS.Link.prototype.link = function() {
     for (var l = 0; l < this.snaps.length; ++l){
         this.snaps[l].addLink(this)
     }
 };
 
-SNAPS.Link.prototype.get = function(i, id) {
-    return id ? this.snaps[i].id : this.snaps[i];
+/**
+ * the preferred way of getting a link's snap out of its snaps collection
+ * @param i {int} the index
+ * @returns {*}
+ */
+SNAPS.Link.prototype.get = function(i) {
+    return  this.snaps[i];
 };
 
 SNAPS.Link.prototype.$TYPE = 'LINK';
@@ -52,23 +64,16 @@ SNAPS.Link.prototype.$TYPE = 'LINK';
 SNAPS.Link.prototype.validate = function() {
     this.snaps = _.map(this.snaps, function(snap) {
         if (typeof snap == 'object') {
-            var err = SNAPS.isSnap(snap);
-
-            if (!err) {
-                return snap;
-            } else {
-                debugger;
-                throw err;
-            }
+            return SNAPS.assert.snap(snap);
         } else if (_.isNumber(snap)) {
             return this.space.get(snap);
         } else {
             console.log('strange link target: %s', snap);
-            throw 'WTF???';
+            throw 'invalid snaps in link';
         }
-    });
+    }, this);
 
-    switch (this.linkType) {
+    switch (this.linkType) { //@TODO: refactor using helper classes
         case 'node':
             if (this.snaps.length != 2) {
                 throw 'node link must have two snaps';
@@ -80,6 +85,9 @@ SNAPS.Link.prototype.validate = function() {
             break;
 
         case 'resource':
+            if(this.snaps.length != 2){
+                throw 'resource link must have two snaps';
+            }
             break;
 
         case 'graph':
@@ -105,7 +113,6 @@ SNAPS.Link.prototype.validate = function() {
             break;
 
         case '1m':
-            // ??
             break;
     }
 };
@@ -121,10 +128,8 @@ SNAPS.Link.prototype.isValid = function(returnMessage) {
 
     switch (this.linkType) {
         case 'node':
-            for (var i = 0; i < this.snaps.length; ++i) {
-                if (!this.space.hasSnap(this.snaps[i])) {
-                    return returnMessage ? 'bad id ' + i : false;
-                }
+            if (this.snaps.length != 2) {
+                return returnMessage ? 'node link must have two snaps' : false;
             }
             break;
 
@@ -209,6 +214,7 @@ SNAPS.Link.prototype.grow = function(snap) {
     this.snaps.push(SPACE.assert.$TYPE(snap, 'SNAP'));
     return this;
 };
+
 SNAPS.Link.prototype.hasSnap = function(snap) {
     var id = SNAPS.isSnap(snap) ? snap.id :  snap;
 
@@ -221,34 +227,37 @@ SNAPS.Link.prototype.hasSnap = function(snap) {
 SNAPS.Link.prototype.removeSnap = function(snap) {
     var hasSnap = false;
     var id = snap.id;
-    for (var s = 0; (!hasSnap) && s < this.snaps.length; ++s){
-        if (this.snaps[s].id == id) hasSnap = true;
+    var sansSnap = [];
+    for (var s = 0; s < this.snaps.length; ++s){
+        if (this.snaps[s].id == id) {
+            hasSnap = true;
+        } else {
+            sansSnap.push(this.snaps[s]);
+        }
     }
     if (!hasSnap) return;
 
-    switch (this.linkType) {
-        case 'node':
-               return this.destroy();
-            break;
+    this.snaps = sansSnap;
 
-        case 'resource':
-            return this.destroy();
-            break;
-        case 'semantic':
-            return this.destroy();
-            break;
+    if (!this.isValid()){
+        this.destroy();
     }
-    this.snaps = _.reject(this.snaps, function(s) {
-        return s.id == id;
-    });
 };
 
+/**
+ * a debugging aid -- the content of a link
+ * @returns {Object}
+ */
 SNAPS.Link.prototype.identity = function() {
-    var out = _.pick(this, 'id', 'active', 'snaps', '$TYPE');
-    out.snaps = _.pluck(out.snaps, 'id');
+    var out = _.pick(this, 'id', 'active', '$TYPE');
+    out.snaps = _.pluck(this.snaps, 'id');
     return out;
 };
 
+/**
+ * call a function over a set of links -- basically a forEach for a network.
+ * @param impulse
+ */
 SNAPS.Link.prototype.impulse = function(impulse) {
     if (impulse.$TYPE != 'IMPULSE') {
         var args = _.toArray(arguments);

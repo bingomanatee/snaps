@@ -1,4 +1,6 @@
 /**
+ *
+ * @@@@@ DEPRECATED -- using signals property change watchers
  * check one or more properties for changes; enact handler when changes happen
  *
  * @param field {[{String}]} a list of properties to observe change on.

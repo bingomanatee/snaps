@@ -1,4 +1,7 @@
 /**
+ *
+ * // @@@@@@@@@ DEPRECATING in favor of a manager
+ *
  * DomCells are collection of elements that have been defined as containers
  * for a row or column of DomCell elements.
  *

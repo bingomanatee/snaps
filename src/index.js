@@ -13,6 +13,15 @@ var SNAPS = {
     typeAliases: {
         SNAP: ['SNAP']
     },
+
+    /**
+     * returns false IF THE OBJECT IS A SNAP.
+     *
+     * @param obj {variant}
+     * @returns {bool}
+     *
+     */
+
     isSnap: function(obj) {
         if (typeof(obj) != 'object') {
             return 'non object';

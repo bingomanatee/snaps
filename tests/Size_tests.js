@@ -6,7 +6,7 @@ var util = require('util');
 
 describe('SNAPS', function() {
 
-    describe('Snap', function() {
+    describe.skip('Snap', function() {
 
         describe('Size', function() {
             // analyzing size properties in isolation without reference to a domElement

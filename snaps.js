@@ -25,6 +25,15 @@ var SNAPS = {
     typeAliases: {
         SNAP: ['SNAP']
     },
+
+    /**
+     * returns false IF THE OBJECT IS A SNAP.
+     *
+     * @param obj {variant}
+     * @returns {bool}
+     *
+     */
+
     isSnap: function(obj) {
         if (typeof(obj) != 'object') {
             return 'non object';
@@ -494,6 +503,16 @@ SNAPS.assert = {
         } else if (check.verify.intNumber(item, 'non-object, non-int passed into toId')){
             return item;
         }
+    },
+
+    snap: function(item, message){
+        var res = SNAPS.isSnap(item);
+        if (!res){
+            return item;
+        } else {
+            throw new Error(message ? message : res);
+        }
+
     }
 };
 
@@ -512,7 +531,7 @@ var linkId = 0;
  * -- 'resource': a relationship that is application-specific - the meta property of the link can provide more detail.
  *
  * @param space {SNAPS.Space}
- * @param snaps {[{SNAPS.Snap | id }]}
+ * @param snaps [{SNAPS.Snap | id }]
  * @param linkType {String} see above
  * @param meta {variant} any kind of annotation -- optional.
  * @constructor
@@ -526,24 +545,36 @@ SNAPS.Link = function(space, snaps, linkType, meta) {
 
     if (check.array(snaps)) {
         this.snaps = snaps;
+    } else if (snaps) {
+        this.snaps = [snaps];
+
     } else {
         this.snaps = [];
-
     }
-    this.meta = meta;
+    this.meta = meta || '';
 
     this.validate();
     this.link();
 };
 
+/**
+ * populate this link amongst all its members.
+ * Members are responsible for not allowing redundancy in thier link collections.
+ *
+ */
 SNAPS.Link.prototype.link = function() {
     for (var l = 0; l < this.snaps.length; ++l){
         this.snaps[l].addLink(this)
     }
 };
 
-SNAPS.Link.prototype.get = function(i, id) {
-    return id ? this.snaps[i].id : this.snaps[i];
+/**
+ * the preferred way of getting a link's snap out of its snaps collection
+ * @param i {int} the index
+ * @returns {*}
+ */
+SNAPS.Link.prototype.get = function(i) {
+    return  this.snaps[i];
 };
 
 SNAPS.Link.prototype.$TYPE = 'LINK';
@@ -551,23 +582,16 @@ SNAPS.Link.prototype.$TYPE = 'LINK';
 SNAPS.Link.prototype.validate = function() {
     this.snaps = _.map(this.snaps, function(snap) {
         if (typeof snap == 'object') {
-            var err = SNAPS.isSnap(snap);
-
-            if (!err) {
-                return snap;
-            } else {
-                debugger;
-                throw err;
-            }
+            return SNAPS.assert.snap(snap);
         } else if (_.isNumber(snap)) {
             return this.space.get(snap);
         } else {
             console.log('strange link target: %s', snap);
-            throw 'WTF???';
+            throw 'invalid snaps in link';
         }
-    });
+    }, this);
 
-    switch (this.linkType) {
+    switch (this.linkType) { //@TODO: refactor using helper classes
         case 'node':
             if (this.snaps.length != 2) {
                 throw 'node link must have two snaps';
@@ -579,6 +603,9 @@ SNAPS.Link.prototype.validate = function() {
             break;
 
         case 'resource':
+            if(this.snaps.length != 2){
+                throw 'resource link must have two snaps';
+            }
             break;
 
         case 'graph':
@@ -604,7 +631,6 @@ SNAPS.Link.prototype.validate = function() {
             break;
 
         case '1m':
-            // ??
             break;
     }
 };
@@ -620,10 +646,8 @@ SNAPS.Link.prototype.isValid = function(returnMessage) {
 
     switch (this.linkType) {
         case 'node':
-            for (var i = 0; i < this.snaps.length; ++i) {
-                if (!this.space.hasSnap(this.snaps[i])) {
-                    return returnMessage ? 'bad id ' + i : false;
-                }
+            if (this.snaps.length != 2) {
+                return returnMessage ? 'node link must have two snaps' : false;
             }
             break;
 
@@ -708,6 +732,7 @@ SNAPS.Link.prototype.grow = function(snap) {
     this.snaps.push(SPACE.assert.$TYPE(snap, 'SNAP'));
     return this;
 };
+
 SNAPS.Link.prototype.hasSnap = function(snap) {
     var id = SNAPS.isSnap(snap) ? snap.id :  snap;
 
@@ -720,34 +745,37 @@ SNAPS.Link.prototype.hasSnap = function(snap) {
 SNAPS.Link.prototype.removeSnap = function(snap) {
     var hasSnap = false;
     var id = snap.id;
-    for (var s = 0; (!hasSnap) && s < this.snaps.length; ++s){
-        if (this.snaps[s].id == id) hasSnap = true;
+    var sansSnap = [];
+    for (var s = 0; s < this.snaps.length; ++s){
+        if (this.snaps[s].id == id) {
+            hasSnap = true;
+        } else {
+            sansSnap.push(this.snaps[s]);
+        }
     }
     if (!hasSnap) return;
 
-    switch (this.linkType) {
-        case 'node':
-               return this.destroy();
-            break;
+    this.snaps = sansSnap;
 
-        case 'resource':
-            return this.destroy();
-            break;
-        case 'semantic':
-            return this.destroy();
-            break;
+    if (!this.isValid()){
+        this.destroy();
     }
-    this.snaps = _.reject(this.snaps, function(s) {
-        return s.id == id;
-    });
 };
 
+/**
+ * a debugging aid -- the content of a link
+ * @returns {Object}
+ */
 SNAPS.Link.prototype.identity = function() {
-    var out = _.pick(this, 'id', 'active', 'snaps', '$TYPE');
-    out.snaps = _.pluck(out.snaps, 'id');
+    var out = _.pick(this, 'id', 'active', '$TYPE');
+    out.snaps = _.pluck(this.snaps, 'id');
     return out;
 };
 
+/**
+ * call a function over a set of links -- basically a forEach for a network.
+ * @param impulse
+ */
 SNAPS.Link.prototype.impulse = function(impulse) {
     if (impulse.$TYPE != 'IMPULSE') {
         var args = _.toArray(arguments);
@@ -1124,16 +1152,16 @@ Space.prototype.snap = function (input) {
 
     if (arguments.length) {
         if (_.isObject(input)) {
-            snap = new Snap(this, this.snaps.length, input);
+            snap = new Snap(this, input);
             this.snaps.push(snap);
         } else if (input === true) {
-            snap = new Snap(this, this.snaps.length, {simple: true});
+            snap = new Snap(this, {simple: true});
             this.snaps.push(snap);
         } else {
             snap = this.snaps[input] || SNAPS.INVALID_SNAP_ID;
         }
     } else {
-        snap = new Snap(this, this.snaps.length);
+        snap = new Snap(this);
         this.snaps.push(snap);
     }
     return snap;
@@ -1258,9 +1286,9 @@ SNAPS.space = function () {
  * @constructor
  */
 
-function Snap(space, id, props) {
+function Snap(space, props) {
     this.space = SNAPS.assert.$TYPE(space, 'SPACE');
-    this.id = SNAPS.assert.int(id, 'id must be a number');
+    this.id = space.nextId();
     this.invalid = false;
     this._simple = !!(props && props.simple);
     if (this.simple) delete props.simple;
@@ -1458,15 +1486,24 @@ Snap.prototype.retireOtherBlends = function (prop) {
 
 };
 
+/**
+ * The arguments are by default a list of snaps. HOWEVER:
+ * IF the first argument is a string it is used as the linktype.
+ * If the last argument is a string it is used as the value for meta.
+ *
+ * @returns {SNAPS.Link}
+ */
+
 Snap.prototype.link = function () {
     var args = _.toArray(arguments);
-    var meta = null;
-    var linkType;
+    var meta = 'nodeChild';
+    var linkType = 'node';
+
     if (typeof(args[0]) == 'string') {
         linkType = args.shift();
-    } else {
-        linkType = 'node';
-        meta = 'nodeChild';
+    }
+    if (typeof args[args.length - 1] == 'string'){
+        meta = args.pop();
     }
     args.unshift(this);
     return new SNAPS.Link(this.space, args, linkType, meta);
@@ -1486,7 +1523,7 @@ Snap.prototype.removeLink = function (link) {
         }
     }
     this.links = newLinks;
-    this.dispatch('unlinked', link);
+
     return this
 };
 
@@ -1500,9 +1537,6 @@ Snap.prototype.addLink = function (link) {
 };
 
 Snap.prototype.getLinksTo = function (linkType, filter, meta) {
-    if (this.simple){
-        return []; // there may in theory be links to a simple snap but it won't be in the local registry.
-    }
     var links = this.getLinks(linkType, filter, meta);
     var out = [];
     for (var l = 0; l < links.length; ++l) {
@@ -1514,9 +1548,6 @@ Snap.prototype.getLinksTo = function (linkType, filter, meta) {
 };
 
 Snap.prototype.getLinksFrom = function (linkType, filter, meta) {
-    if (this.simple) {
-        return []; // again -- no registry
-    }
     var links = this.getLinks(linkType, filter, meta);
     var out = [];
     for (var l = 0; l < links.length; ++l) {
@@ -1766,6 +1797,8 @@ Snap.prototype.nodeFamily = function () {
     return out;
 };
 /**
+ *
+ * @@@@@ DEPRECATED -- using signals property change watchers
  * check one or more properties for changes; enact handler when changes happen
  *
  * @param field {[{String}]} a list of properties to observe change on.
@@ -2174,8 +2207,8 @@ Snap.prototype.initUpdated = function () {
 
 };
 
-Space.prototype.bd = function (ele, parent) {
-    var dom = SNAPS.domElement(this, this.snaps.length, ele, parent);
+Space.prototype.bd = function (parent) {
+    var dom = SNAPS.domElement(this, this.snaps.length, parent);
     this.snaps.push(dom);
     return dom;
 };
@@ -2183,15 +2216,17 @@ Space.prototype.bd = function (ele, parent) {
 /**
  * note -- this is a factory, not a constructor
  * @param space {Space}
- * @param i {int} the id in the snaps registry
- * @param e {element} (optional) the element class to be used
  * @param p {DomElement} (optional) the parent to this domElement
  * @returns {DomElement}
  */
-SNAPS.domElement = function (space, i, e, p) {
-    return new DomElement(space, i, e, p);
+SNAPS.domElement = function (space, p) {
+    return new DomElement(space, p);
 };
 
+/**
+ * broadcast a message through all the dom tree.
+ * Start with the root bd elements.
+ */
 Space.prototype.bdDispatch = function () {
     var args = _.toArray(arguments);
     var message = args.shift();
@@ -2208,47 +2243,48 @@ Space.prototype.bdDispatch = function () {
 };
 
 /**
+ *
  * DomElement is a child class of Snap. It manages a browser Element.
  * Note that most of the properties that relate to the element are managed by
  * two child resources, the attrSnap and styleSnap.
  *
- * Because these two snaps are resources they do not automatically inherit any values from
+ * Because the style and attr snaps are resources they do not automatically inherit any values from
  * the DomElement; if you want them to you will have to link listeners in the DomElement
  * to its styleSnap/attrSnap properties yourself.
  *
- * Parenting is a bit complex for DomElements. Parenting in DOM actually affects visual features
- * of the Element; however, parenting of DomElements create inheritance behaviors in the local
- * properties of the DomElement.
+ * A WORD ON VOCABULARY
  *
- * There are many times that one or the other sort of relationships are desirable (or both).
- * Because of this there is two ways to create parent/child relationships between DomElements
- * and / or their child element properties (accessed by the e() method).
+ * DomElement is a Snaps artifact. Browser Element or Node is a browser construct, that bridges the
+ * visible page with javascript -- it is not part of the Snaps codebase; Nodes are created by Snaps
+ * to affect the page's appearance.
  *
- * 1) linking both DomElements AND their elements is created by passing a parent to the DomElement
- *    at the time of creation.
+ * --------------- Parenting
  *
- * 2) linking JUST elements is created by passing a parent to the elementToDom method of the child.
+ * Parenting is a bit complex for DomElements.
  *
- * --------------- DomElement's element
+ * You can link a DomElement to a parent node -- but this doesn't affect the Browser DOM parenting
+ * of their elements (Nodes).
  *
- * the DomElement does not necessarily have a DomElement. You can if you want pass it an existing
- * element as a constructor parameter; if this is not done the DomElement won't actually have any
- * element until an action that requires an element to be present in which case, one is made.
+ * You can call bd.elementToDom(bd2) which DOES create a parent child relationship between their Nodes
+ * but does not link the two DomElements in Snaps.
  *
- * 1) any time you set an attribute or a style value, an element will be made.
- * 2) if you add a parent to the DomElement, either during construction or via elementToDom, an element
- *    will be made in the update cycle.
- * 3) if you manually call e(), innerHTML, s(), or a() (which are examples of 1) and 2) above)
+ * If you pass one DomElement as a contructor parameter to another, BOTH the Nodes and the DomElements
+ * are linked as parent and child.
+ *
+ * This can be achieved after creation by linking two DomElements
+ * and then using elementToDom to link their elements (Nodes).
+ *
+ * --------------- DomElement's element (Node)
+ *
+ * the DomElement does not necessarily have an element. Elements are only created when they are absolutely
+ * required in order to create an opportunity to shim in an alias, and to let you create data representations
+ * that represent a larger set of data without burdening the DOM with their presence until they are visible.
+ *
+ * DomElement's elements will be instantiated when:
+ *
+ * 1) any time you set an attribute or a style value DIRECTLY (via bd.a(..), bd.h(), or bd.e(...) ),
  *    an element will be made.
- *
- * --------------- Setting Element properties
- *
- * The methods attr(prop, value) and style(attr, value) add pending changes to the attrSnap and styleSnap
- * properties of a DomElement. This is the preferred way to manage an element's properties.
- *
- * You can directly set properties of an element (immediately) by calling a(prop, value) and s(prop, value).
- * However this is not desirable as it doesn't sync these properties whih attrSnap and styleSnap
- * which means you won't be able to introspect these properties via attr(prop) or style(prop).
+ * 2) if you add a parent to the DomElement via elementToDom(), an element  will be made.
  *
  * ............... property units
  *
@@ -2270,77 +2306,46 @@ Space.prototype.bdDispatch = function () {
  * --------------- Attaching DomElements to the Document
  *
  * just creating a DomElement instance does NOT place it in the browser's DOM tree. You must call
- * elementToDom to accomplish this. Until this is done, the DomElement will not be visible or part of the
- * DOM tree.
+ * bd.elementToDom() on a domElement or its parent DomElement to insert a DomElement's element into the document
+ * and make it visible. Until this is done, the DomElement will not be visible or part of the DOM tree.
  *
  * The elementToDom method does one of two things:
  *
- * 1) if it has no parameter it attaches its element to the space's document (which should be set
- * to the pages' document.)
+ * 1) if it has no parameter it attaches its element to the space's document
+ *    (which should be set to the pages' document.) or the global document object.
+ *    This is somewhat random, and not desirable usually.
  * 2) if a parent is passed to elementToDom there are one of two possibilities:
  *    a) the parent is a browser Element in which case the caller's element is appended to that parent.
  *    b) the parent is a DomElement in which case the caller's element is appended to
  *       the parent's element. However the DomElements are not themselves linked.
- *
- * -------------- innerHTML
- *
- * There is two ways to put content inside elements:
- *
- * 1) actually parent DomElements to each other using elementToDom
- * 2) call innerHTML to put markup in hte DomElement's Element.
- *
- * You have to pick one - there is no real way to preserve nested DomElements AND allow you to
- * add custom markup to the innerHTML of an element; therefore calling innerHTML on any DomElement
- * that has domChildren will throw an error.
- *
- * @param space  {Space} the registry this DomElement belongs to; see Snap.prototype
- * @param id     {int} the id of this Snap within the Space; see Snap.prototype
- * @param ele    [optional {Element} a native Element
- * @param parent {DomElement | Element} if present, then the element of this DomElement
- *               will be made a child of the parents' DomElement
- *               AND this DomElement will be made a child of the parent.
- * @constructor
  */
-var DomElement = function (space, id, ele, parent) {
-    Snap.call(this, space, id, {});
+
+var DomElement = function (space, parent) {
+    Snap.call(this, space, {});
 
     this.styleSnap = space.snap();
-    this.link('resource', this.styleSnap).meta = 'style';
-    // although this is referenced as a direct property we add it to the links to enable cascading delete
+    this.link('resource', this.styleSnap, 'style');
     this.styleSnap.listen('updateProperties', _styleSnapChanges, this);
 
     this.attrSnap = space.snap();
-    this.link('resource', this.attrSnap).meta = 'attr';
-    // although this is referenced as a direct property we add it to the links to enable cascading delete
+    this.link('resource', this.attrSnap, 'attr');
     this.attrSnap.listen('updateProperties', _attrSnapChanges, this);
 
     this.propChangeTerminal.listen('innerhtml', function (newContent) {
         this.h(newContent);
     }, this);
-    this._element = ele;
+
     if (parent) {
         if (parent.$TYPE == DomElement.prototype.$TYPE) {
-            parent.e().appendChild(this.e());
+            /**
+             *  if a DomElement is passed as a parent, link it as a child
+             *  AND link its element as a child of this snap's element
+             */
+
             parent.link(this);
-        } else {
-            parent.appendChild(this.e());
         }
+        this.elementToDom(parent);
     }
-
-    this.listen('element', function (element) {
-        if (element && element.$TYPE == DomElement.prototype.$TYPE) {
-
-        }
-        var addElement = this.get('addElement');
-        if (addElement) {
-            if (addElement === true) {
-                this.elementToDom();
-            } else {
-                var parent = addElement.$TYPE == DomElement.prototype.$TYPE ? addElement.e() : addElement;
-                this.elementToDom(parent);
-            }
-        }
-    }, this);
     this.propChangeTerminal.listen('innerhtml', this.h, this)
 };
 
@@ -2359,31 +2364,9 @@ DomElement.prototype.contains = function (x, y) {
 
 };
 
-DomElement.prototype.attr = function (prop, value) {
-    if (typeof(prop) == 'object') {
-        for (var p in prop) {
-            this.attrSnap.set(p, prop[p]);
-        }
-    } else {
-        if (arguments.length < 2) {
-            return this.attrSnap.get(prop);
-        }
-        this.attrSnap.set(prop, value)
-    }
-    return this;
-};
-
-DomElement.prototype.innerHTML = function (content) {
-    if (this.hasDomChildren()) {
-        throw new Error('innerHTML: cannot add content to a browserDom snap with domChildren');
-    }
-    this.set('innerhtml', content);
-    return this;
-};
-
 DomElement.prototype.destroy = function () {
     if (this._element) {
-        this.removeElement();
+        this.removeElementFromDom();
     }
     Snap.prototype.destroy.call(this);
 };
@@ -2391,53 +2374,41 @@ DomElement.prototype.destroy = function () {
 /**
  * Adds a domElement's element to the page.
  *
- * If EITHER a DomElement node is passed in (either a native dom element or a SNAPS DomElement)
- * then this domElement is added to the body.
+ * This method ONLY affects the browser's element's relationships; it doesn't affect the snaps
+ * linkage.
  *
- * Note - the relationship between DomElements and page elements probably should,
- * but does not have to, be kept parallel; however passing a parent to elementToDom
- * will not make this node a child of that DomElement -- it will just enforce parent child
- * relationships between their elements.
- *
- * @param parent
+ * @param domParent {DomElement | Node}
  * @returns {DomElement}
  */
-DomElement.prototype.elementToDom = function (parent) {
-    if (!parent) {
-        var parents = this.domParents();
-        if (parents.length) {
-            parent = parents[0];
-        } else {
-            parent = this.space.document.body;
-        }
+DomElement.prototype.elementToDom = function (domParent) {
+    if (this.hasDomParent()) {
+        throw new Error('attempting to add an element to dom that has a parent snap');
     }
 
-    if (parent.$TYPE == DomElement.prototype.$TYPE) {
-        parent = parent.e();
+    var element = this.e();
+
+    if (element.parentNode) {
+        throw new Error('attempt to add an element to the dom that has a domParent');
     }
-    parent.appendChild(this.e());
+
+    if (domParent.$TYPE == DomElement.prototype.$TYPE){
+        domParent = domParent.e();
+    }
+
+    domParent.appendChild(element);
     return this;
 };
 
-DomElement.prototype.parent = function () {
-    if (this.space.document) {
-        return this.space.document;
-    } else if (this._element) {
-        return this._element.document;
-    } else {
-        return null;
-    }
-};
-
 DomElement.prototype.document = function () {
-    var document = this.space.document;
-    if (document) {
+    if (typeof document != 'undefined') {
         return document;
+    } else if (this.space.document) {
+        return this.space.document;
     }
-    return this.e() ? this.e().document : null;
+    return this.e().document; // last desperate hope....
 };
 
-DomElement.prototype.removeElement = function () {
+DomElement.prototype.removeElementFromDom = function () {
     var parent = this.e().parentNode;
     if (parent) {
         parent.removeChild(this.e());
@@ -2626,15 +2597,14 @@ DomElement.prototype.size = function (sizeName, value, unit) {
  * the 'value' property is a numeric and can be blended.
  *
  * @param space {Space}
- * @param id {int}
  * @param sizeName {string}  {String} usu. 'width' or 'height'
  * @param input {variant} number or size string('200px', '100%')
  * @param unit {string} (optional) '%' or 'px'
  * @constructor
  */
 
-function Size(space, id, sizeName, input, unit) {
-    Snap.call(this, space, id);
+function Size(space, sizeName, input, unit) {
+    Snap.call(this, space);
 
     this.listen('updateProperties', _updateSize, this);
     this.listen('updateDocumentSize', _updateSize, this);
@@ -2913,9 +2883,18 @@ function _updateSize() {
  * @constructor
  */
 
-function DomCellManager(space, id, orientation) {
-    Snap.call(this, space, id);
+function DomCellManager(space, orientation) {
+    Snap.call(this, space);
     this.set('isVert', /^v/i.test(orientation));
+    this.listen('linked', _onDCMLinked.bind(this));
+}
+
+function _onDCMLinked(link) {
+    this.sizeChildren();
+}
+
+Space.prototype.domCellManager = function(orientation){
+    return new DomCellManager(this, this.nextId(), orientation);
 };
 
 DomCellManager.prototype.$TYPE = 'DOMCELLMGR';
@@ -2923,209 +2902,75 @@ SNAPS.typeAliases.SNAP.push(DomCellManager.prototype.$TYPE);
 
 DomCellManager.prototype = Object.create(Snap.prototype);
 
-DomCellManager.prototype.sizeChildren = function(){
+function _DCMOrderedChildren(domCellManager) {
+    var c;
+    var unordered = [];
+    var csName = domCellManager.get('isVert') ? 'vCellSize' : 'hSellSize';
 
-    var parent = this.resParent();
+    var parent = Snaps.assert.$TYPE(domCellManager.resParent(), DomElement.prototype.$TYPE);
     if (!parent) {
         return; // might not be linked yet
     }
+    var children = parent.domChildren();
 
+    var maxOrdered = 0;
+    for ( c = 0; c < children.length; ++c) {
+        var child = children[c];
 
-
-}
-/**
- * DomCells are collection of elements that have been defined as containers
- * for a row or column of DomCell elements.
- *
- * This allows for layout elements like header/footer/content, table-type grids,
- */
-
-/**
- * This is the outward facing factory of cells.
- *
- * @param parent
- * @param orientation
- * @param size {int | [int]} -- either a value (defined
- * @param unit {string} optional -- by default is 'px'
- * @returns {*}
- */
-Space.prototype.bdCells = function (parent, orientation, size, unit) {
-    var bdCells = _bdCells(this, this.snaps.length, parent, orientation, size, unit);
-    this.snaps.push(bdCells);
-    return bdCells;
-};
-
-/**
- * This is the factory for a bdCells type DomElement.
- *
- * @param space
- * @param i
- * @param p
- * @param o
- * @param d
- * @returns {DomCells}
- */
-function _bdCells(space, i, p, o, d) {
-    return new DomCells(space, i, p, o, d);
-};
-
-/**
- * DomCells is a series of cells -- a row or column -- contained within a parent element
- * with which they share a dimension (width for columns, height for rows).
- *
- * The DomCells class itself has a box for which the shared dimension is defined.
- * Without further modification, the shared size (i.e., the width for the entire row)
- * is set to 100%.
- *
- * @param space
- * @param id
- * @param parent
- * @param orientation {String} ('vertical' or 'horizontal').
- * @param size {Number | Array} [value, '%'] -- the shared size
- * @param unit {string} (optional) the unit of that size
- * @constructor
- */
-function DomCells(space, id, parent, orientation, size, unit) {
-    DomElement.call(this, space, id, null, parent);
-    this.set('isVert', orientation == 'vertical');
-    var w, h;
-    var wu, hu;
-    if (!unit) {
-        unit = '%';
-    }
-    wu = hu = unit;
-
-    if (_.isArray(size)) {
-        w = size[0];
-        h = size[1];
-    } else {
-        if (orientation == 'vertical') {
-            w = size;
-            wu = unit;
-            h = 100;
-            hu = '%';
+        if (child.has(csName)) {
+            maxOrdered = Math.max(child.get(csName), maxOrdered);
         } else {
-            w = 100;
-            wu = '%';
-            h = size;
+            children[c] = null;
+            unordered.push(child);
         }
     }
-    this.size('width', w, wu);
-    this.size('height', h, hu);
-    this.update();
-};
+    if (unordered.length) {
+        children = _.compact(children);
 
-DomCells.prototype.$TYPE = 'DOMCELLS';
-SNAPS.typeAliases.SNAP.push(DomCells.prototype.$TYPE);
-
-DomCells.prototype = Object.create(DomElement.prototype);
-
-function DomCell(cells, isVert, size, unit) {
-    DomElement.call(this, cells.space, cells.space.nextId(), null, cells);
-    this.size(isVert ? 'height' : 'width', size, unit)
-        .size(isVert ? 'width' : 'height', 100, '%')
-        .listen('updated', function () {
-            cells.setCellOffset(cellDom);
+        children = _.sortBy(children, function (child) {
+            return child.get(csName);
         });
+
+        console.log('warning: DomCellManager has unordered children; enforcing order of ' + csName);
+        unordered = _.sortBy(unordered, 'id'); // as good a guess as any...
+
+        children = children.concat(unordered);
+        for (c = 0; c < children.length; ++c){
+            children[c].set(csName, c);
+        }
+    } else {
+        return _.sortBy(children, function (child) {
+            return child.get(csName);
+        });
+    }
+
 }
 
-DomCell.prototype.$TYPE = 'DOMCELL';
-SNAPS.typeAliases.SNAP.push(DomCell.prototype.$TYPE);
+DomCellManager.prototype.sizeChildren = function () {
+    var children = _DCMOrderedChildren(this);
+    var offset = 0;
+    var sizeName;
+    var styleName;
 
-DomCell.prototype = Object.create(DomElement.prototype);
+    if (this.get('isVert')) {
+        sizeName = 'height' ;
+        styleName = 'top';
 
-DomCell.prototype.asBdCell = function (orientation) {
-    this.set('isVert', orientation == 'vertical');
-};
+    } else {
+        sizeName = 'width' ;
+        styleName = 'left';
 
-DomCell.prototype.addCell = function () {
-    if (!this.has('isVert')) {
-        throw new Error('attempting to add a sub-cell to a cell tha thas not been given an orientation; call asBdCelll first.');
     }
-
-    var args = _.toArray(arguments);
-
-    _addCell.apply(this, args);
-};
-
-function _addCell(size, unit) {
-    var cellDom = new DomCell(this, this.get('isVert'), size, unit);
-    cellDom.set('cellIndex', this.domChildrenLinks().length, true);
-    this.setCellOffset(cellDom);
-    return cellDom;
-};
-
-DomCells.prototype.addCell = _addCell;
-
-/**
- * //@TODO: refactor this into the DomCell definition
- * setting the offset of
- * @param cellDom
- */
-DomCells.prototype.setCellOffset = function (cellDom) {
-    var prevCells = this.domChildren();
-    var thisIndex = cellDom.get('cellIndex');
-    var prev = [];
-    var distance = 0;
-    var isVert = this.get('isVert');
-    //  console.log('<<< getting offset of cell %s', thisIndex);
-    for (var p = 0; p < prevCells.length; ++p) {
-        var snap = prevCells[p];
-        var c = snap.get('cellIndex');
-        //   console.log('considering cell %s', c);
-        if (c < thisIndex) {
-            switch (isVert) {
-                case true:
-                    var size = snap.size('height');
-                    //   console.log('size: %s', JSON.stringify(size.state()));
-                    if (size.get('value') == 50) {
-                        debugger;
-                    }
-                    var height = snap.pixels('height');
-                    if (height != null) {
-                        distance += height;
-                        //      console.log('adding height %s', height);
-                    } else {
-                        //       console.log('height is null');
-                        debugger;
-                    }
-                    break;
-
-                case false:
-                    var width = snap.pixels('width');
-                    if (width != null) {
-                        distance += width;
-                        //             console.log('adding width %s', width);
-                    } else {
-                        //              console.log('width is null');
-                        debugger;
-                    }
-                    break;
-
-                default:
-                    throw new Error('isVertical must be horizontal or vertical');
-            }
-            prev.push(snap);
-        } else {
-            //   console.log('skipping index %s', c);
+    for (var c = 0; c < children.length; ++c) {
+       var child = children[c];
+        if (offset > 0) {
+            child.style(styleName, offset + 'px');
+        }
+       var size = child.size(sizeName);
+        if (size) {
+            offset += size.pixels();
         }
     }
-
-    //console.log('total offset: %s', distance);
-
-    switch (isVert) {
-        case true:
-            cellDom.style('top', distance + 'px');
-            break;
-
-        case false:
-            cellDom.style('left', distance + 'px');
-            break;
-
-        default:
-            throw new Error('isVertical must be horizontal or vertical');
-    }
-
 };
 DomElement.prototype.domChildrenLinks = function () {
     return this.getLinksFrom('node', null, 'dom');
@@ -3142,14 +2987,15 @@ DomElement.prototype.hasDomChildren = function () {
 };
 
 DomElement.prototype.domChildren = function () {
-    var children = [];
-    for (var l = 0; l < this.links.length; ++l) {
-        var link = this.links[l];
-        if (link.linkType == 'node' && link.meta == 'dom' && link.snaps[0].id == this.id) {
-            children.push(link.snaps[1]);
-        }
-    }
-    return children;
+    /*var children = [];
+     for (var l = 0; l < this.links.length; ++l) {
+     var link = this.links[l];
+     if (link.linkType == 'node' && link.meta == 'dom' && link.snaps[0].id == this.id) {
+     children.push(link.snaps[1]);
+     }
+     }
+     return children;*/
+    return this.getLinksFrom('node', 'dom');
 };
 
 DomElement.prototype.domParentLinks = function () {
@@ -3182,6 +3028,29 @@ DomElement.prototype.hasDomParent = function () {
     }
     return false;
 };
+/**
+ *
+ * Setting Element properties
+ *
+ * The methods attr(prop, value), innerHTML(content) and style(attr, value)
+ * add pending changes to the attrSnap and styleSnap properties of a DomElement.
+ * This is the preferred way to manage an element's properties.
+ *
+ * You can directly, immediately set properties of an element by calling
+ * a(prop, value), bd.h(p, v), and s(prop, value).
+ * However this is not desirable as this sidesteps the style and attr registry of the DomElement's resources.
+ * which means you won't be able to introspect these properties via attr(prop) or style(prop).
+ */
+
+/* ******************** CONSTANTS ********************* */
+
+/**
+ * these values are all known attrs;
+ * however there are some attrs that are also elements and those attrs
+ * (and for whom it is more common for them to be elements than attributes)
+ * are listed in _styleOverrides.
+ */
+
 var attrNames = 'accept,accept-charset,accesskey,action,align,alt,async,autocomplete,autofocus,autoplay,autosave,bgcolor,border,buffered,challenge,charset,checked,cite,class,code,codebase,color,cols,colspan,content,contenteditable,contextmenu,controls,coords,data,datetime,default,defer,dir,dirname,disabled,download,draggable,dropzone,enctype,for,form,formaction,headers,height,hidden,high,href,hreflang,http-equiv,icon,id,ismap,itemprop,keytype,kind,label,lang,language,list,loop,low,manifest,max,maxlength,media,method,min,multiple,name,novalidate,open,optimum,pattern,ping,placeholder,poster,preload,pubdate,radiogroup,readonly,rel,required,reversed,rows,rowspan,sandbox,scope,scoped,seamless,selected,shape,size,sizes,span,spellcheck,src,srcdoc,srclang,start,step,style,summary,tabindex,target,title,type,usemap,value,width,wrap'
 var _attrs = _.reduce(attrNames.split(','), function (out, p) {
     out[p] = true;
@@ -3190,12 +3059,6 @@ var _attrs = _.reduce(attrNames.split(','), function (out, p) {
 
 var dataRE = /^data-/i;
 
-/**
- * the above values are all known attrs;
- * however there are some attrs that are also elements and those attrs
- * (and for whom it is more common for them to be elements than attributes)
- * are overridden with the list below.
- */
 var _styleOverrides = {
     color: true,
     width: true,
@@ -3213,12 +3076,12 @@ var _pxProps = _.reduce('border-bottom-width,border-left-width,border-radius,bor
         return out;
     }, {});
 
-function _styleSnapChanges () {
+function _styleSnapChanges() {
     var state = this.styleSnap.state();
     this.s(state);
 }
 
-function _attrSnapChanges () {
+function _attrSnapChanges() {
     for (var p in this.attrSnap.lastChanges) {
         var value = this.attrSnap.lastChanges[p].pending;
 
@@ -3230,48 +3093,54 @@ function _attrSnapChanges () {
     }
 }
 
-//@TODO: is this async?
-DomElement.prototype.element = DomElement.prototype.e = function () {
-    if (!this._element) {
+/**
+ * returns this DomElement's element node; creates it if it does not already exist.
+ * Also can set the element node if passed in as a parameter.
+ * @type {e}
+ */
+DomElement.prototype.element = DomElement.prototype.e = function (element) {
+    if (element) {
+        /**
+         *    will assign the parameter as an element. will NOT parent that element
+         *    to this element's domParent -- must be done manually.
+         */
+
+        this._element = element;
+
+        this.dispatch('element', this._element);
+
+    } else if (!this._element) {
         if (typeof (document) == 'undefined') {
             if (this.space.document) {
                 this._element = this.space.document.createElement(this.domNodeName());
-                this.dispatch('element', this._element);
             } else {
-                // this may not work if env is async....
-                SNAPS.jsdom = require('jsdom');
-                var self = this;
-
-                SNAPS.jsdom.env(
-                    '<html><body></body></html>',
-                    [],
-                    function (errors, w) {
-                        window = w;
-                        self.space.window = w;
-                        self.space.document = window.document;
-                        self.element = space.document.createElement(self.domNodeName());
-                        self.dispatch('element', self.element);
-                    }
-                );
+                throw new Error('No global document or space.document found');
             }
         } else {
-            this.window = window; // global
-            this.document = document; // global
             this._element = document.createElement(this.domNodeName());
         }
+        this.dispatch('element', this._element);
     }
     return this._element;
 };
 
+/**
+ * Queues style changes to be applied in the next update cycle.
+ * @param prop {string | Object} -- can be the name of a single property, or a hash of prop/value pairs
+ * @param value {variant} -- the value of the prop; OR the value of immediate if prop is an Object.
+ * @param immediate {bool} -- see Snap.set; forces an immediate change to the styleSnap's properties.
+ * @returns {*}
+ */
 DomElement.prototype.style = function (prop, value, immediate) {
     if (typeof(prop) == 'object') {
+        immediate = !!value;
         for (var p in prop) {
-            this.styleSnap.set(p, prop[p]);
+            this.styleSnap.set(p, prop[p], immediate);
         }
     } else if (arguments.length < 2) {
         return this.styleSnap.get(prop);
     } else {
-        this.styleSnap.set(prop, value);
+        this.styleSnap.set(prop, value, immediate);
         if (this.space.isUpdating()) {
             this.s(prop, value);
         }
@@ -3279,6 +3148,11 @@ DomElement.prototype.style = function (prop, value, immediate) {
     return this;
 };
 
+/**
+ * Directly sets the inner content of the DomElement's element node; for internal use only.
+ * the innerHTML method is preferred for external use.
+ * @type {html}
+ */
 DomElement.prototype.h = DomElement.prototype.html = function (innerhtml) {
     if (arguments.length > 0) {
         if (this.hasDomChildren()) {
@@ -3292,6 +3166,14 @@ DomElement.prototype.h = DomElement.prototype.html = function (innerhtml) {
     }
 };
 
+/**
+ * Directly sets an attribute of a DomElement's Node; for internal use only.
+ * the attr method is the preferred way of setting and managing Node properties.
+ *
+ * @param prop
+ * @param value
+ * @returns {*}
+ */
 DomElement.prototype.a = function (prop, value) {
     if (dataRE.test(prop)) {
         var args = _.toArray(arguments);
@@ -3310,11 +3192,13 @@ DomElement.prototype.a = function (prop, value) {
 };
 
 /**
- * directly write to the domElements's style. This for the most part should be done
- * through the snap system.
+ * Directly write to the DomElement's element(Node) style; for internal use only.
+ * the attr method is the preferred way of setting and managing Node properties.
  *
  * parameters can be:
- *  -- prop (returns elements current value)
+ *  -- prop (returns element Node's current value)
+ *
+ *  all other parameter configurations change the element Node's style:
  *  -- prop, value
  *  -- prop, value, unit
  *  -- config object (prop/value pairs)
@@ -3361,6 +3245,55 @@ DomElement.prototype.s = function () {
     }
 };
 
+/**
+ * the public method for changing element (Node) attributes.
+ *
+ * @param prop {string | Object} -- can be the name of a single property, or a hash of prop/value pairs
+ * @param value {variant} -- the value of the prop; OR the value of immediate if prop is an Object.
+ * @param immediate {bool} -- see Snap.set; forces an immediate change to the styleSnap's properties.
+
+ * @returns {*}
+ */
+DomElement.prototype.attr = function (prop, value, immediate) {
+    if (typeof(prop) == 'object') {
+        immediate = !!value;
+        for (var p in prop) {
+            this.attrSnap.set(p, prop[p], immediate);
+        }
+    } else {
+        if (arguments.length < 2) {
+            return this.attrSnap.get(prop);
+        }
+        this.attrSnap.set(prop, value, immediate)
+    }
+    return this;
+};
+
+/**
+ *
+ * There is two ways to put content inside elements:
+ *
+ * 1) actually parent DomElements to each other using elementToDom
+ * 2) call innerHTML to put markup in hte DomElement's Element.
+ *
+ * ONLY DO ONE OF THESE to any given DomElement.
+ *
+ * There is no real way to preserve nested DomElements AND allow you to add custom markup to the innerHTML
+ * of an element; therefore calling innerHTML on any DomElement that has domChildren will throw an error.
+ *
+ * @param space  {Space} the registry this DomElement belongs to; see Snap.prototype
+ * @param parent {DomElement | Element} if present, then the element of this DomElement
+ *               will be made a child of the parents' DomElement
+ *               AND this DomElement will be made a child of the parent's element.
+ * @constructor
+ */
+DomElement.prototype.innerHTML = function (content) {
+    if (this.hasDomChildren()) {
+        throw new Error('innerHTML: cannot add content to a browserDom snap with domChildren');
+    }
+    this.set('innerhtml', content);
+    return this;
+};
 
 return SNAPS;
 

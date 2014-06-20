@@ -24,16 +24,6 @@ describe('SNAPS', function () {
                         }
                     }
                 );
-
-                it('should throw error when a non-number id is passed', function () {
-                        try {
-                            var snap = new Snap({$TYPE: 'SPACE'});
-                            ''.should.eql(1); // force an error -- should not be reached
-                        } catch (err) {
-                            err.message.should.eql('id must be a number');
-                        }
-                    }
-                )
             });
 
             describe('a good Snap', function () {
@@ -41,11 +31,11 @@ describe('SNAPS', function () {
                 var snap;
 
                 before(function () {
-                    snap = new Snap({$TYPE: 'SPACE', foo: 3}, 1);
+                    snap = new Snap({$TYPE: 'SPACE', foo: 3, nextId: function(){ return 0}});
                 });
 
-                it('should have id 1', function () {
-                    snap.id.should.eql(1)
+                it('should have id 0', function () {
+                    snap.id.should.eql(0)
                 });
 
                 it('should have the passed in space', function () {
@@ -86,7 +76,7 @@ describe('SNAPS', function () {
 
                 describe('inheritance', function () {
 
-                    describe('(simple)', function () {
+                    describe('basic', function () {
 
                         var space;
                         var snap;
