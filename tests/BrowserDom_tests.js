@@ -4,19 +4,19 @@ var _ = require('lodash');
 var util = require('util');
 var dom = require('jsdom');
 
-describe('SNAPS', function() {
+describe('SNAPS', function () {
 
-    describe('jsdom validation', function() {
-        describe('createElement', function() {
+    describe('jsdom validation', function () {
+        describe('createElement', function () {
 
             var document, window, div;
 
-            before(function(done) {
+            before(function (done) {
 
                 dom.env(
                     '<html><body></body></html>',
                     [],
-                    function(errors, w) {
+                    function (errors, w) {
                         window = w;
                         document = window.document;
                         div = document.createElement('div');
@@ -27,25 +27,25 @@ describe('SNAPS', function() {
                 );
             });
 
-            it('should be in document', function() {
+            it('should be in document', function () {
                 document.outerHTML.should.eql('<html><body><div style="width: 50%;"></div></body></html>');
             });
 
-            it('should render div', function() {
+            it('should render div', function () {
                 div.outerHTML.should.eql('<div style="width: 50%;"></div>')
             });
 
         });
-        describe('style', function() {
+        describe('style', function () {
 
             var document, window, div;
 
-            before(function(done) {
+            before(function (done) {
 
                 dom.env(
                     '<html><body></body></html>',
                     [],
-                    function(errors, w) {
+                    function (errors, w) {
                         window = w;
                         document = window.document;
                         div = document.createElement('div');
@@ -57,21 +57,21 @@ describe('SNAPS', function() {
                 );
             });
 
-            it('should render div', function() {
+            it('should render div', function () {
                 div.outerHTML.should.eql("<div style=\"color: rgb(255, 0, 0);\"></div>")
             });
 
         });
 
-        describe('setAttribute', function() {
+        describe('setAttribute', function () {
             var document, window, div;
 
-            before(function(done) {
+            before(function (done) {
 
                 dom.env(
                     '<html><body></body></html>',
                     [],
-                    function(errors, w) {
+                    function (errors, w) {
                         window = w;
                         document = window.document;
                         div = document.createElement('div');
@@ -83,29 +83,27 @@ describe('SNAPS', function() {
                 );
             });
 
-            it('should render div', function() {
+            it('should render div', function () {
                 div.outerHTML.should.eql("<div name=\"foo\"></div>")
             });
 
         });
     });
 
-    describe('BrowserDom', function() {
-        describe('#constructor', function() {
+    describe('BrowserDom', function () {
+        describe.only('#constructor', function () {
 
-            describe('basic insertion', function() {
+            describe('basic insertion', function () {
                 var space, bd;
                 var window, div;
 
-                before(function(done) {
+                before(function (done) {
 
                     dom.env(
                         '<html><body></body></html>',
                         [],
-                        function(errors, w) {
+                        function (errors, w) {
                             window = w;
-                            div = window.document.createElement('div');
-                            window.document.body.appendChild(div);
 
                             space = SNAPS.space();
                             space.setWindow(window);
@@ -115,58 +113,49 @@ describe('SNAPS', function() {
                     );
                 });
 
-                it('should be in document', function() {
+                it('should be in document', function () {
                     window.document.body.outerHTML.should.eql("<body><div></div></body>");
-                });
-
-                it('should render div', function() {
-                    div.outerHTML.should.eql('<div></div>')
                 });
             });
 
-            describe('#destroy', function() {
+            describe('#destroy', function () {
                 var space, bd;
                 var document, window, div;
 
-                before(function(done) {
+                before(function (done) {
 
                     dom.env(
                         '<html><body></body></html>',
                         [],
-                        function(errors, w) {
+                        function (errors, w) {
                             window = w;
-                            document = window.document;
-                            div = document.createElement('div');
-                            document.body.appendChild(div);
-
                             space = SNAPS.space();
-                            space.document = document;
-                            bd = space.bd(div, document.body);
+                            space.setWindow(window);
+                            bd = space.bd(window.document.body);
                             done();
                         }
                     );
                 });
 
-                it('should remove itself from DOM when destroyed', function() {
-                    document.body.outerHTML.should.eql("<body><div></div></body>");
+                it('should remove itself from DOM when destroyed', function () {
+                    window.document.body.outerHTML.should.eql("<body><div></div></body>");
                     bd.destroy();
-                    document.body.outerHTML.should.eql("<body></body>");
-
+                    window.document.body.outerHTML.should.eql("<body></body>");
                 });
             });
 
         });
 
-        describe('style()', function() {
+        describe('style()', function () {
             var space, bd;
             var document, window, div;
 
-            before(function(done) {
+            before(function (done) {
 
                 dom.env(
                     '<html><body></body></html>',
                     [],
-                    function(errors, w) {
+                    function (errors, w) {
                         window = w;
                         document = window.document;
                         div = document.createElement('div');
@@ -182,21 +171,21 @@ describe('SNAPS', function() {
                 );
             });
 
-            it('should render div', function() {
+            it('should render div', function () {
                 div.outerHTML.should.eql("<div style=\"color: rgb(255, 200, 200);\" name=\"foo\"></div>")
             });
         });
 
-        describe('a() and s()', function() {
+        describe('a() and s()', function () {
             var space, bd;
             var document, window, div;
 
-            before(function(done) {
+            before(function (done) {
 
                 dom.env(
                     '<html><body></body></html>',
                     [],
-                    function(errors, w) {
+                    function (errors, w) {
                         window = w;
                         document = window.document;
                         div = document.createElement('div');
@@ -211,22 +200,21 @@ describe('SNAPS', function() {
                 );
             });
 
-            it('should render div', function() {
+            it('should render div', function () {
                 div.outerHTML.should.eql("<div name=\"foo\" style=\"color: rgb(255, 0, 0);\"></div>")
             });
         });
 
-
-        describe('#set', function() {
+        describe('#set', function () {
             var space, bd;
             var document, window, div;
 
-            before(function(done) {
+            before(function (done) {
 
                 dom.env(
                     '<html><body></body></html>',
                     [],
-                    function(errors, w) {
+                    function (errors, w) {
                         window = w;
                         document = window.document;
                         div = document.createElement('div');
@@ -241,7 +229,7 @@ describe('SNAPS', function() {
                 );
             });
 
-            it('should allow you to set properties', function() {
+            it('should allow you to set properties', function () {
                 div.outerHTML.should.eql('<div name="foo" style="color: rgb(255, 0, 0);"></div>');
                 bd.attrSnap.set('name', 'bar');
                 div.outerHTML.should.eql('<div name="foo" style="color: rgb(255, 0, 0);"></div>');
@@ -251,63 +239,55 @@ describe('SNAPS', function() {
 
         });
 
-        describe('dom children', function() {
+        describe('dom children', function () {
             var space, bd, document, window, div, bd2;
 
             dom.env(
                 '<html><body></body></html>',
                 [],
-                function(errors, w) {
+                function (errors, w) {
                     window = w;
-                    document = window.document;
-                    div = document.createElement('div');
-                    var div2 = document.createElement('span');
-                    document.body.appendChild(div);
+                    space.setWindow(window);
 
                     space = SNAPS.space();
                     bd = space.bd(div)
                         .a('class', 'foo')
                         .s('color', 'rgb(255,0,0)');
-                    bd2 = space.bd(div2, bd)
+                    bd2 = space.bd(bd)
                         .html('bar');
                     space.update();
                     done();
                 });
 
-            it('should embed one bd in another', function() {
+            it('should embed one bd in another', function () {
                 bd.hasDomChildren().should.eql(true);
                 document.innerHTML.should.eql('<html><body><div class="foo" style="color: rgb(255, 0, 0);"><span>bar</span></div></body></html>');
             });
 
-            describe('blocking setting of HTML when domChldren are present', function() {
+            describe('blocking setting of HTML when domChldren are present', function () {
                 var space, bd, document, window, div, bd2;
 
-                before(function(done){
+                before(function (done) {
                     dom.env(
                         '<html><body></body></html>',
                         [],
-                        function(errors, w) {
+                        function (errors, w) {
                             window = w;
-                            document = window.document;
-                            div = document.createElement('div');
-                            var div2 = document.createElement('span');
-                            document.body.appendChild(div);
+                            space.setWindow(window);
+                            space.addWindow(window);
 
                             space = SNAPS.space();
-                            space.setWindow(window);
-                            bd = space.bd(div, document.body)
+                            bd = space.bd(div)
                                 .a('class', 'foo')
                                 .s('color', 'rgb(255,0,0)');
-                            bd2 = space.bd(div2, bd)
+                            bd2 = space.bd(bd)
                                 .html('bar');
-                            bd.link(bd2);
-                            space.setWindow(window);
                             space.update();
                             done();
                         });
                 });
 
-                it('should embed one bd in another', function() {
+                it('should embed one bd in another', function () {
                     bd2.innerHTML('a new body'); // we CAN add content to the child node because it itself has no child domNodes.
                     space.update();
 

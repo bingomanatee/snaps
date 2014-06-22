@@ -1,5 +1,5 @@
 Space.prototype.bd = function (parent) {
-    var dom = SNAPS.domElement(this, this.snaps.length, parent);
+    var dom = SNAPS.domElement(this, parent);
     this.snaps.push(dom);
     return dom;
 };
@@ -134,8 +134,9 @@ var DomElement = function (space, parent) {
              */
 
             parent.link(this);
+        } else {
+            this.elementToDom(parent);
         }
-        this.elementToDom(parent);
     }
     this.propChangeTerminal.listen('innerhtml', this.h, this)
 };
@@ -172,6 +173,7 @@ DomElement.prototype.destroy = function () {
  * @returns {DomElement}
  */
 DomElement.prototype.elementToDom = function (domParent) {
+    debugger;
     if (this.hasDomParent()) {
         throw new Error('attempting to add an element to dom that has a parent snap');
     }
